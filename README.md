@@ -62,4 +62,3 @@ vercel.json                 ตั้งค่าให้ refresh หน้า�
 This product uses the TMDB API but is not endorsed or certified by TMDB.
 โลโก้ TMDB สำหรับหน้า About ดาวน์โหลดได้จาก https://www.themoviedb.org/about/logos-attribution
 
-.
