@@ -61,3 +61,5 @@ vercel.json                 ตั้งค่าให้ refresh หน้า�
 ข้อมูลหนังและโปสเตอร์จาก [The Movie Database (TMDB)](https://www.themoviedb.org)
 This product uses the TMDB API but is not endorsed or certified by TMDB.
 โลโก้ TMDB สำหรับหน้า About ดาวน์โหลดได้จาก https://www.themoviedb.org/about/logos-attribution
+
+.
