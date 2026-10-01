@@ -1,20 +1,27 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import ReviewForm from '../components/ReviewForm';
-import { getMovie } from '../api/tmdb';
+import ReviewList from '../components/ReviewList';
+import MovieActions from '../components/MovieActions';
+import { useAuth } from '../auth/AuthContext';
+import { getMovie, getReviews, postReview } from '../api/backend'; // ✅ ใช้ getMovie จาก backend
 
 function MovieDetail() {
-  const { id } = useParams();                       // ได้เป็น string เสมอ (ตอนนี้คือรหัสของ TMDB)
+  const { id } = useParams();
   const [movie, setMovie] = useState(null);
   const [status, setStatus] = useState('loading');
   const [error, setError] = useState(null);
+  const [reviews, setReviews] = useState([]);
+  
+  const { isLoggedIn, token, member } = useAuth(); 
 
+  // โหลดข้อมูลหนังจาก Backend
   useEffect(() => {
     let ignore = false;
     async function load() {
       setStatus('loading');
       try {
-        const m = await getMovie(id);
+        const m = await getMovie(id); // ✅ ใช้ getMovie(id) จาก backend
         if (!ignore) { setMovie(m); setStatus('success'); }
       } catch (err) {
         if (!ignore) { setError(err); setStatus('error'); }
@@ -22,7 +29,25 @@ function MovieDetail() {
     }
     load();
     return () => { ignore = true; };
-  }, [id]);                                          // id เปลี่ยน = โหลดเรื่องใหม่
+  }, [id]);
+
+  // โหลดรีวิวจริงจาก Backend
+  useEffect(() => {
+    let ignore = false;
+    getReviews(id)
+      .then(data => { if (!ignore) setReviews(data.items); })
+      .catch(() => { if (!ignore) setReviews([]); });
+    return () => { ignore = true; };
+  }, [id]);
+
+  // ส่งรีวิว
+  async function handleReviewSubmit(text) {
+    const saved = await postReview(id, text, token);
+    setReviews([
+      { ...saved, member: { id: member.id, displayName: member.displayName }, score: null },
+      ...reviews,
+    ]);
+  }
 
   if (status === 'loading') {
     return (
@@ -43,18 +68,18 @@ function MovieDetail() {
     return (
       <div className="mx-auto max-w-xl px-4 py-20 text-center">
         <p className="text-lg text-slate-700">ไม่พบหนังเรื่องนี้ 😢</p>
-        <p className="text-sm text-slate-400">{error.message}</p>
-        <Link to="/movies" className="mt-6 inline-block text-sm text-slate-500 underline">กลับไปหน้าหนังทั้งหมด</Link>
+        <p className="text-sm text-slate-400">{error?.message || 'เกิดข้อผิดพลาดในการดึงข้อมูลจาก Backend'}</p>
+        <Link to="/movies" className="mt-6 inline-block text-sm text-emerald-600 hover:underline">กลับไปหน้าหนังทั้งหมด</Link>
       </div>
     );
   }
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 md:px-6">
-      <Link to="/movies" className="text-sm text-slate-500 hover:text-slate-900">กลับไปหน้าหนังทั้งหมด</Link>
+      <Link to="/movies" className="text-sm text-slate-500 hover:text-emerald-600">กลับไปหน้าหนังทั้งหมด</Link>
 
       <div className="mt-4 flex flex-col gap-8 md:flex-row">
-        {movie.poster ? (
+        {movie?.poster ? (
           <img src={movie.poster} alt={`โปสเตอร์ ${movie.title}`}
                className="w-48 shrink-0 self-start rounded-xl border border-slate-200" />
         ) : (
@@ -62,15 +87,28 @@ function MovieDetail() {
         )}
 
         <div className="flex-1">
-          <h1 className="text-2xl font-semibold text-slate-900 md:text-3xl">{movie.title}</h1>
-          {movie.titleTh && <p className="mt-1 text-slate-500">{movie.titleTh}</p>}
+          <h1 className="text-2xl font-semibold text-slate-900 md:text-3xl">{movie?.title}</h1>
+          {movie?.titleTh && <p className="mt-1 text-slate-500">{movie.titleTh}</p>}
           <p className="mt-2 text-sm text-slate-500">
-            {movie.year}{movie.genre && ` | ${movie.genre}`}{movie.rating != null && ` | ⭐ ${movie.rating}`}
+            {movie?.year}{movie?.genre && ` | ${movie.genre}`}{movie?.rating != null && ` | ⭐ ${movie.rating}`}
           </p>
-          <p className="mt-4 leading-relaxed text-slate-700">{movie.detail}</p>
+          <p className="mt-4 leading-relaxed text-slate-700">{movie?.detail}</p>
 
-          <div className="mt-8 rounded-xl border border-slate-200 p-5">
-            <ReviewForm key={movie.id} movieTitle={movie.title} />
+          <MovieActions movieId={movie?.id} />
+
+          <div className="mt-8">
+            <h2 className="mb-3 text-lg font-semibold text-slate-900">รีวิวจากสมาชิก ({reviews.length})</h2>
+            <ReviewList items={reviews} />
+          </div>
+
+          <div className="mt-6 rounded-xl border border-emerald-100 bg-white p-5">
+            {isLoggedIn ? (
+              <ReviewForm key={movie?.id} movieTitle={movie?.title} onSubmit={handleReviewSubmit} />
+            ) : (
+              <p className="text-sm text-slate-500">
+                <Link to="/login" className="text-emerald-600 hover:underline">เข้าสู่ระบบ</Link> เพื่อเขียนรีวิว
+              </p>
+            )}
           </div>
         </div>
       </div>
