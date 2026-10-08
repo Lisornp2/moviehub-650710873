@@ -4,7 +4,10 @@ import ReviewForm from '../components/ReviewForm';
 import ReviewList from '../components/ReviewList';
 import MovieActions from '../components/MovieActions';
 import { useAuth } from '../auth/AuthContext';
-import { getMovie, getReviews, postReview } from '../api/backend'; // ✅ ใช้ getMovie จาก backend
+
+// ✅ แยก import: ข้อมูลหนังดึงจาก TMDB, ส่วนรีวิวดึงจาก Backend
+import { getMovie } from '../api/tmdb';
+import { getReviews, postReview } from '../api/backend';
 
 function MovieDetail() {
   const { id } = useParams();
@@ -15,13 +18,13 @@ function MovieDetail() {
   
   const { isLoggedIn, token, member } = useAuth(); 
 
-  // โหลดข้อมูลหนังจาก Backend
+  // โหลดข้อมูลรายละเอียดหนังจาก TMDB
   useEffect(() => {
     let ignore = false;
     async function load() {
       setStatus('loading');
       try {
-        const m = await getMovie(id); // ✅ ใช้ getMovie(id) จาก backend
+        const m = await getMovie(id); // ✅ ใช้ getMovie จาก tmdb.js
         if (!ignore) { setMovie(m); setStatus('success'); }
       } catch (err) {
         if (!ignore) { setError(err); setStatus('error'); }
@@ -35,12 +38,12 @@ function MovieDetail() {
   useEffect(() => {
     let ignore = false;
     getReviews(id)
-      .then(data => { if (!ignore) setReviews(data.items); })
+      .then(data => { if (!ignore) setReviews(data?.items || []); })
       .catch(() => { if (!ignore) setReviews([]); });
     return () => { ignore = true; };
   }, [id]);
 
-  // ส่งรีวิว
+  // ส่งรีวิวไปยัง Backend
   async function handleReviewSubmit(text) {
     const saved = await postReview(id, text, token);
     setReviews([
@@ -68,7 +71,7 @@ function MovieDetail() {
     return (
       <div className="mx-auto max-w-xl px-4 py-20 text-center">
         <p className="text-lg text-slate-700">ไม่พบหนังเรื่องนี้ 😢</p>
-        <p className="text-sm text-slate-400">{error?.message || 'เกิดข้อผิดพลาดในการดึงข้อมูลจาก Backend'}</p>
+        <p className="text-sm text-slate-400">{error?.message || 'เกิดข้อผิดพลาดในการดึงข้อมูล'}</p>
         <Link to="/movies" className="mt-6 inline-block text-sm text-emerald-600 hover:underline">กลับไปหน้าหนังทั้งหมด</Link>
       </div>
     );
@@ -79,8 +82,9 @@ function MovieDetail() {
       <Link to="/movies" className="text-sm text-slate-500 hover:text-emerald-600">กลับไปหน้าหนังทั้งหมด</Link>
 
       <div className="mt-4 flex flex-col gap-8 md:flex-row">
-        {movie?.poster ? (
-          <img src={movie.poster} alt={`โปสเตอร์ ${movie.title}`}
+        {movie?.posterPath || movie?.poster ? (
+          <img src={movie.posterPath ? `https://image.tmdb.org/t/p/w500${movie.posterPath}` : movie.poster} 
+               alt={`โปสเตอร์ ${movie.title}`}
                className="w-48 shrink-0 self-start rounded-xl border border-slate-200" />
         ) : (
           <div className="grid aspect-[2/3] w-48 shrink-0 place-items-center rounded-xl bg-slate-100 text-5xl">🎬</div>
@@ -90,11 +94,11 @@ function MovieDetail() {
           <h1 className="text-2xl font-semibold text-slate-900 md:text-3xl">{movie?.title}</h1>
           {movie?.titleTh && <p className="mt-1 text-slate-500">{movie.titleTh}</p>}
           <p className="mt-2 text-sm text-slate-500">
-            {movie?.year}{movie?.genre && ` | ${movie.genre}`}{movie?.rating != null && ` | ⭐ ${movie.rating}`}
+            {movie?.releaseDate || movie?.year}{movie?.genre && ` | ${movie.genre}`}{(movie?.voteAverage || movie?.rating) != null && ` | ⭐ ${movie?.voteAverage?.toFixed(1) || movie?.rating}`}
           </p>
-          <p className="mt-4 leading-relaxed text-slate-700">{movie?.detail}</p>
+          <p className="mt-4 leading-relaxed text-slate-700">{movie?.overview || movie?.detail}</p>
 
-          <MovieActions movieId={movie?.id} />
+          <MovieActions movieId={movie?.id || id} />
 
           <div className="mt-8">
             <h2 className="mb-3 text-lg font-semibold text-slate-900">รีวิวจากสมาชิก ({reviews.length})</h2>
@@ -103,7 +107,7 @@ function MovieDetail() {
 
           <div className="mt-6 rounded-xl border border-emerald-100 bg-white p-5">
             {isLoggedIn ? (
-              <ReviewForm key={movie?.id} movieTitle={movie?.title} onSubmit={handleReviewSubmit} />
+              <ReviewForm key={movie?.id || id} movieTitle={movie?.title} onSubmit={handleReviewSubmit} />
             ) : (
               <p className="text-sm text-slate-500">
                 <Link to="/login" className="text-emerald-600 hover:underline">เข้าสู่ระบบ</Link> เพื่อเขียนรีวิว

@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import FeaturedCarousel from '../components/FeaturedCarousel';
-import { getMovies } from '../api/backend';
+
+// ✅ สลับกลับมาดึงจาก tmdb.js
+import { getMovies } from '../api/tmdb';
 
 const STEPS = [
   { n: 1, file: 'src/api/tmdb.js', what: 'เขียนส่วน fetch ใน getJSON' },
@@ -61,7 +63,7 @@ function Home() {
         <div className="mb-4 flex items-end justify-between">
           <div>
             <h2 className="text-xl font-semibold text-slate-900">หนังแนะนำ</h2>
-            <p className="text-sm text-slate-500">สุ่มลำดับใหม่ทุกครั้งที่เปิดหน้า แหล่งข้อมูล: data.js</p>
+            <p className="text-sm text-slate-500">สุ่มลำดับใหม่ทุกครั้งที่เปิดหน้า แหล่งข้อมูล: TMDB</p>
           </div>
           <button onClick={() => setPicks(shuffle(picks))} className="text-sm text-emerald-600 hover:underline">
             สุ่มใหม่

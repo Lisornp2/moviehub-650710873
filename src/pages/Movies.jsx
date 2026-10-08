@@ -1,80 +1,82 @@
-import { useEffect, useState } from 'react';
-import MovieGrid from '../components/MovieGrid';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { getMovies } from '../api/backend';
-//import { getMovies, CACHE_KEY } from '../api/tmdb';
-//import { forget } from '../api/cache';
 
-function Movies() {
-  const [query, setQuery] = useState('');          // คำค้น (controlled input) กรองในเครื่อง ไม่ยิง API
-  const [genre, setGenre] = useState('all');       // แนวที่เลือกจากแถบปุ่ม 'all' = ทุกแนว
-  const [movies, setMovies] = useState([]);        // รายการจาก getMovies() (โหลดจริงวันละครั้ง)
-  const [status, setStatus] = useState('loading'); // 'loading' | 'success' | 'error'
+export default function Movies() {
+  const [movies, setMovies] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [reloadKey, setReloadKey] = useState(0);   // ตัวนับสำหรับปุ่ม "ลองใหม่"
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedGenre, setSelectedGenre] = useState('');
 
-  // โหลดตอน component เกิด และทุกครั้งที่กด "ลองใหม่" (reloadKey เปลี่ยน)
-  useEffect(() => {
-    let ignore = false;                            // ธงกันคำตอบเก่ามาทับคำตอบใหม่
-
-    async function load() {
-      setStatus('loading');
-      try {
-        const list = await getMovies();            // ครั้งแรกของวันยิง API ครั้งถัดไปอ่านจาก localStorage
-        if (!ignore) {
-          setMovies(list);
-          setStatus('success');
-        }
-      } catch (err) {
-        if (!ignore) {
-          setError(err);
-          setStatus('error');
-        }
-      }
+  const fetchMoviesData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getMovies();
+      setMovies(data || []);
+    } catch (err) {
+      setError(err.message || 'เกิดข้อผิดพลาด');
+    } finally {
+      setLoading(false);
     }
-    load();
+  };
 
-    return () => { ignore = true; };               // cleanup: effect รอบเก่าถูกยกเลิก
-  }, [reloadKey]);
+  useEffect(() => {
+    fetchMoviesData();
+  }, []);
 
-  // ค่าที่คำนวณจาก state ไม่ต้องเป็น state เอง: รายชื่อแนวที่มีจริง และรายการหลังกรอง
-  const genres = [...new Set(movies.map(m => m.genre).filter(Boolean))];
-  const q = query.trim().toLowerCase();
-  const shown = movies.filter(m =>
-    (genre === 'all' || m.genre === genre) &&
-    (q === '' || m.title.toLowerCase().includes(q) || (m.titleTh ?? '').toLowerCase().includes(q))
-  );
+  if (loading) {
+    return <div>กำลังโหลด...</div>;
+  }
 
-  const chipClass = (active) =>
-    'rounded-full border px-3 py-1 text-sm transition ' +
-    (active ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-emerald-200 bg-white text-slate-600 hover:bg-emerald-50');
+  if (error) {
+    return (
+      <div>
+        <h2>โหลดข้อมูลไม่สำเร็จ</h2>
+        <p>{error}</p>
+        <button onClick={fetchMoviesData}>ลองใหม่</button>
+      </div>
+    );
+  }
+
+  const genres = Array.from(new Set(movies.map((m) => m.genre).filter(Boolean)));
+
+  const filteredMovies = movies.filter((movie) => {
+    const matchesSearch =
+      movie.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      movie.titleTh?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesGenre = selectedGenre ? movie.genre === selectedGenre : true;
+    return matchesSearch && matchesGenre;
+  });
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10 md:px-6">
-      <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-900">หนังทั้งหมด</h1>
-          <p className="text-sm text-slate-500">
-            แหล่งข้อมูล: TMDB (โหลดวันละครั้ง) {status === 'success' && `| พบ ${shown.length} จาก ${movies.length} เรื่อง`}
-          </p>
-        </div>
-        <input value={query} onChange={(e) => setQuery(e.target.value)}
-               placeholder="พิมพ์ชื่อหนังเพื่อกรอง..."
-               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 md:w-72" />
-      </div>
+    <div>
+      <input
+        type="text"
+        placeholder="พิมพ์ชื่อหนัง..."
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+      />
 
-      {/* เมนูเลือกแนวหนัง สร้างจากข้อมูลที่มีจริง ไม่ต้องพิมพ์รายชื่อเอง */}
-      <div className="mb-6 flex flex-wrap gap-2">
-        <button onClick={() => setGenre('all')} className={chipClass(genre === 'all')}>ทุกแนว</button>
-        {genres.map(g => (
-          <button key={g} onClick={() => setGenre(g)} className={chipClass(genre === g)}>{g}</button>
+      <div>
+        {genres.map((genre) => (
+          <button
+            key={genre}
+            onClick={() => setSelectedGenre(selectedGenre === genre ? '' : genre)}
+          >
+            {genre}
+          </button>
         ))}
       </div>
 
-      {/* ปุ่มลองใหม่ต้องล้าง cache ก่อน ไม่งั้นจะได้ของเก่าหรือ error เดิมซ้ำ */}
-      <MovieGrid movies={shown} status={status} error={error}
-                 onRetry={() => setReloadKey(k => k + 1)} />
+      <div>
+        {filteredMovies.map((movie) => (
+          <Link key={movie.id} to={`/movies/${movie.id}`}>
+            <h3>{movie.title}</h3>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }
-
-export default Movies;

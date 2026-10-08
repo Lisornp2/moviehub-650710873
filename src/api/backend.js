@@ -1,75 +1,109 @@
-// ชั้นกลางสำหรับคุยกับ Backend ของทีมเรา (วันนี้คือ mock ที่พอร์ต 4000 สัปดาห์หน้าคือ Go)
-// ต่างจาก tmdb.js ตรงที่มี POST / PUT / DELETE และต้องแนบ token สำหรับ endpoint ที่ต้อง login
-
-// '' = origin เดียวกับหน้าเว็บ CRA จะ proxy /api ไปที่ http://localhost:4000 ให้ (ตั้งใน package.json)
-// ตอนต่อ Go จริง ตั้ง REACT_APP_API_URL=https://api.ทีมเรา.xyz ใน .env และบน Vercel
 const BASE = process.env.REACT_APP_API_URL || '';
 
-// ฟังก์ชันเดียวที่ fetch จริง ทุกฟังก์ชันด้านล่างเรียกผ่านตัวนี้
 export async function apiFetch(path, { method = 'GET', body, token } = {}) {
-  const headers = { 'Content-Type': 'application/json' };   // 1) บอก server ว่า body เป็น JSON
-  if (token) headers.Authorization = `Bearer ${token}`;      //    และแนบบัตรผ่านถ้ามี
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(BASE + path, {                     // 2) ยิงจริง
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,           //    object ต้องแปลงเป็นข้อความก่อนส่ง
-  });
+  let res;
+  try {
+    res = await fetch(BASE + path, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch (err) {
+    throw new Error('ไม่สามารถเชื่อมต่อ Server Backend ได้ (กรุณาเช็คว่ารัน npm run mock หรือยัง)');
+  }
 
-  if (res.status === 204) return null;                       // 3) ลบสำเร็จ ไม่มี body ให้อ่าน
+  // กรณีตอบกลับ 204 No Content (ไม่มี body)
+  if (res.status === 204) return null;
 
-  const data = await res.json()                              //    อ่านคำตอบเป็น JSON
-    .catch(() => ({ error: 'server ไม่ได้ตอบเป็น JSON' }));
-  if (!res.ok) {                                             // 4) 400 / 401 / 404 / 409 มาลงตรงนี้
-    const err = new Error(data.error || `server ตอบกลับ ${res.status}`);
-    err.status = res.status;                                 //    แนบเลขไว้ให้หน้าเว็บใช้ต่อ
+  // รองรับกรณี fakeResponse ที่ไม่มี res.headers
+  const contentType = res.headers?.get ? res.headers.get('content-type') : 'application/json';
+  let data = {};
+
+  if (contentType && contentType.includes('application/json')) {
+    data = await res.json().catch(() => {
+      // เมื่อ res.json() พัง (เช่น เจอ SyntaxError / ไม่ใช่ JSON)
+      throw new Error('server ไม่ได้ตอบเป็น JSON');
+    });
+  } else {
+    throw new Error('server ไม่ได้ตอบเป็น JSON');
+  }
+
+  if (!res.ok) {
+    const err = new Error(data.error || data.message || `เกิดข้อผิดพลาดสถานะ ${res.status}`);
+    err.status = res.status;
     throw err;
   }
   return data;
+}
+
+// ---------- หนัง ----------
+export function getMovies(query = '') {
+  return apiFetch(`/api/movies${query ? `?q=${encodeURIComponent(query)}` : ''}`);
+}
+
+export function getMovieById(id) {
+  return apiFetch(`/api/movies/${Number(id)}`);
 }
 
 // ---------- สมาชิก ----------
 export function register(email, password, displayName) {
   return apiFetch('/api/auth/register', { method: 'POST', body: { email, password, displayName } });
 }
+
 export function login(email, password) {
-  return apiFetch('/api/auth/login', { method: 'POST', body: { email, password } });   // ได้ { token, member }
+  return apiFetch('/api/auth/login', { method: 'POST', body: { email, password } });
 }
+
 export function getMe(token) {
   return apiFetch('/api/me', { token });
 }
 
 // ---------- รีวิว ----------
 export function getReviews(movieId) {
-  return apiFetch(`/api/movies/${movieId}/reviews`);                                   // ได้ { items }
+  return apiFetch(`/api/movies/${Number(movieId)}/reviews`);
 }
+
 export function postReview(movieId, text, token) {
-  return apiFetch(`/api/movies/${movieId}/reviews`, { method: 'POST', body: { text }, token });
+  return apiFetch(`/api/movies/${Number(movieId)}/reviews`, { method: 'POST', body: { text }, token });
+}
+
+export function deleteReview(reviewId, token) {
+  return apiFetch(`/api/reviews/${Number(reviewId)}`, { method: 'DELETE', token });
 }
 
 // ---------- คะแนน ----------
 export function putVote(movieId, score, token) {
-  return apiFetch(`/api/movies/${movieId}/vote`, { method: 'PUT', body: { score }, token });
+  return apiFetch(`/api/movies/${Number(movieId)}/vote`, {
+    method: 'PUT',
+    body: { score: Number(score) },
+    token,
+  });
+}
+
+export function deleteVote(movieId, token) {
+  return apiFetch(`/api/movies/${Number(movieId)}/vote`, { method: 'DELETE', token });
 }
 
 // ---------- Wishlist ----------
 export function getWishlist(token) {
-  return apiFetch('/api/me/wishlist', { token });                                       // ได้ { items }
+  return apiFetch('/api/me/wishlist', { token });
 }
+
 export function addToWishlist(movieId, token) {
-  return apiFetch(`/api/me/wishlist/${movieId}`, { method: 'PUT', token });
+  const numId = Number(movieId);
+  return apiFetch(`/api/me/wishlist/${numId}`, {
+    method: 'PUT',
+    token,
+  });
 }
+
 export function removeFromWishlist(movieId, token) {
-  return apiFetch(`/api/me/wishlist/${movieId}`, { method: 'DELETE', token });
-}
-
-// ---------- หนัง (สัปดาห์หน้า: เปลี่ยนหน้า Movies จาก tmdb.js มาใช้ตัวนี้) ----------
-export async function getMovies() {
-  const data = await apiFetch('/api/movies');
-  return data.items;
-}
-// src/api/backend.js
-
-export async function getMovie(movieId) {
-  return apiFetch(`/api/movies/${movieId}`); 
+  const numId = Number(movieId);
+  return apiFetch(`/api/me/wishlist/${numId}`, {
+    method: 'DELETE',
+    token,
+  });
 }
