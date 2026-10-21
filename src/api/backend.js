@@ -1,4 +1,4 @@
-const BASE = process.env.REACT_APP_API_URL || '';
+const BASE = import.meta.env.VITE_API_BASE_URL || 'https://week6-lab-2.onrender.com';
 
 export async function apiFetch(path, { method = 'GET', body, token } = {}) {
   const headers = { 'Content-Type': 'application/json' };
@@ -32,7 +32,7 @@ export async function apiFetch(path, { method = 'GET', body, token } = {}) {
   }
 
   if (!res.ok) {
-    const err = new Error(data.error || data.message || `เกิดข้อผิดพลาดสถานะ ${res.status}`);
+    const err = new Error(data.error?.message ?? data.error ?? `server ตอบกลับ ${res.status}`);
     err.status = res.status;
     throw err;
   }
@@ -41,7 +41,16 @@ export async function apiFetch(path, { method = 'GET', body, token } = {}) {
 
 // ---------- หนัง ----------
 export function getMovies(query = '') {
-  return apiFetch(`/api/movies${query ? `?q=${encodeURIComponent(query)}` : ''}`);
+  // เพิ่มการส่ง limit เพื่อปลดล็อกให้ Backend ส่งหนังกลับมาครบ 100 เรื่อง (ไม่ติด Pagination Default)
+  let url = '/api/movies';
+  
+  if (query) {
+    url += `?q=${encodeURIComponent(query)}&limit=100&_limit=100`;
+  } else {
+    url += '?limit=100&_limit=100&limit=0';
+  }
+
+  return apiFetch(url);
 }
 
 export function getMovieById(id) {
@@ -106,4 +115,14 @@ export function removeFromWishlist(movieId, token) {
     method: 'DELETE',
     token,
   });
+}
+export async function getMovie(movieId) {
+  const items = await getMovies();
+  const movie = items.find(m => String(m.id) === String(movieId));
+  if (!movie) {
+    const err = new Error('ไม่พบหนังเรื่องนี้');
+    err.status = 404;
+    throw err;
+  }
+  return movie;
 }
