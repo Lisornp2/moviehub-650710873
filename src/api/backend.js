@@ -1,4 +1,10 @@
-const BASE = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000').replace(/\/+$/, '');
+
+
+const BASE = (
+  import.meta.env.VITE_API_BASE_URL ||
+  'https://week6-lab-2.onrender.com'
+).replace(/\/+$/, '');
+
 
 export async function apiFetch(path, { method = 'GET', body, token } = {}) {
   const headers = {};
