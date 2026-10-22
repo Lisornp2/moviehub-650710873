@@ -1,76 +1,87 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import { putVote, addToWishlist, removeFromWishlist, getWishlist } from '../api/backend';
+import { putVote, addToWishlist, removeFromWishlist } from '../api/backend';
 
+// แถบปุ่มใต้ชื่อหนัง: ให้คะแนน 1 ถึง 10 และปุ่มเพิ่มเข้า wishlist
 function MovieActions({ movieId }) {
   const { isLoggedIn, token } = useAuth();
+
   const [myScore, setMyScore] = useState(null);
   const [inWishlist, setInWishlist] = useState(false);
   const [message, setMessage] = useState(null);
-
-  const safeId = Number(movieId);
-
-  // ดึงรายการ Wishlist เพื่อเช็คสถานะเริ่มต้นของปุ่มหัวใจ
-  useEffect(() => {
-    if (isLoggedIn && token) {
-      getWishlist(token)
-        .then((data) => {
-          const items = Array.isArray(data) ? data : (data?.items || []);
-          const exists = items.some((item) => (item.id || item.movieId) === safeId);
-          setInWishlist(exists);
-        })
-        .catch(() => {});
-    }
-  }, [isLoggedIn, token, safeId]);
+  const [saving, setSaving] = useState(false);
 
   if (!isLoggedIn) {
     return (
-      <div className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800 border border-amber-200">
-        กรุณา <Link to="/login" className="font-semibold text-emerald-600 hover:underline">เข้าสู่ระบบ</Link> เพื่อให้คะแนนและเพิ่มเข้ารายการที่อยากดู
-      </div>
+      <p className="mt-4 text-sm text-slate-500">
+        <Link to="/login" className="text-emerald-600 hover:underline">
+          เข้าสู่ระบบ
+        </Link>{' '}
+        เพื่อให้คะแนนและเพิ่มเข้ารายการที่อยากดู
+      </p>
     );
   }
 
   async function handleVote(score) {
+    if (saving) return;
+
+    setSaving(true);
     setMessage(null);
+
     try {
-      await putVote(safeId, score, token);
+      // ต้องส่งไป server สำเร็จก่อน
+      await putVote(movieId, score, token);
+
+      // ค่อยเปลี่ยน state หลัง server ตอบสำเร็จ
       setMyScore(score);
-      setMessage(`ให้คะแนน ${score}/10 เรียบร้อยแล้ว!`);
+      setMessage('บันทึกคะแนนแล้ว');
     } catch (err) {
-      setMessage(err.message || 'เกิดข้อผิดพลาดในการบันทึกคะแนน');
+      // ถ้า server error จะไม่เปลี่ยน myScore
+      setMessage(err.message);
+    } finally {
+      setSaving(false);
     }
   }
 
   async function handleWishlist() {
+    if (saving) return;
+
+    setSaving(true);
     setMessage(null);
+
     try {
       if (inWishlist) {
-        await removeFromWishlist(safeId, token);
+        // เอาออกจาก wishlist
+        await removeFromWishlist(movieId, token);
         setInWishlist(false);
         setMessage('นำออกจากรายการที่อยากดูแล้ว');
       } else {
-        await addToWishlist(safeId, token);
+        // เพิ่มเข้า wishlist
+        await addToWishlist(movieId, token);
         setInWishlist(true);
-        setMessage('เพิ่มเข้ารายการที่อยากดูแล้ว!');
+        setMessage('เพิ่มเข้ารายการที่อยากดูแล้ว');
       }
     } catch (err) {
-      setMessage(err.message || 'เกิดข้อผิดพลาดในการอัปเดตรายการที่อยากดู');
+      // ถ้า server error จะไม่เปลี่ยน inWishlist
+      setMessage(err.message);
+    } finally {
+      setSaving(false);
     }
   }
 
   return (
     <div className="mt-4 space-y-3">
       <div className="flex flex-wrap items-center gap-1">
-        <span className="mr-2 text-sm font-medium text-slate-600">ให้คะแนน</span>
-        {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+        <span className="mr-2 text-sm text-slate-500">ให้คะแนน</span>
+
+        {Array.from({ length: 10 }, (_, i) => i + 1).map(n => (
           <button
             key={n}
-            type="button"
             onClick={() => handleVote(n)}
+            disabled={saving}
             className={
-              'h-8 w-8 rounded-lg border text-sm font-medium transition ' +
+              'h-8 w-8 rounded-lg border text-sm disabled:cursor-not-allowed disabled:opacity-50 ' +
               (myScore === n
                 ? 'border-emerald-500 bg-emerald-500 text-white'
                 : 'border-emerald-200 bg-white text-slate-600 hover:bg-emerald-50')
@@ -82,19 +93,21 @@ function MovieActions({ movieId }) {
       </div>
 
       <button
-        type="button"
         onClick={handleWishlist}
+        disabled={saving}
         className={
-          'flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition ' +
+          'rounded-lg border px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50 ' +
           (inWishlist
             ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
             : 'border-emerald-200 bg-white text-slate-600 hover:bg-emerald-50')
         }
       >
-        {inWishlist ? '❤️ อยู่ในรายการที่อยากดูแล้ว' : '🤍 เพิ่มเข้ารายการที่อยากดู'}
+        {inWishlist
+          ? '❤️ อยู่ในรายการที่อยากดูแล้ว'
+          : '🤍 เพิ่มเข้ารายการที่อยากดู'}
       </button>
 
-      {message && <p className="text-sm font-medium text-emerald-600">{message}</p>}
+      {message && <p className="text-sm text-slate-500">{message}</p>}
     </div>
   );
 }

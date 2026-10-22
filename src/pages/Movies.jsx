@@ -1,213 +1,80 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { getMovies } from '../api/backend';
+import { useEffect, useState } from 'react';
+import MovieGrid from '../components/MovieGrid';
+import {getMovies} from '../api/backend';
+//import { forget } from '../api/cache';
 
-export default function Movies() {
-  const [movies, setMovies] = useState([]);
-  const [loading, setLoading] = useState(true);
+function Movies() {
+  const [query, setQuery] = useState('');          // คำค้น (controlled input) กรองในเครื่อง ไม่ยิง API
+  const [genre, setGenre] = useState('all');       // แนวที่เลือกจากแถบปุ่ม 'all' = ทุกแนว
+
+  const [movies, setMovies] = useState([]);        // รายการจาก getMovies() (โหลดจริงวันละครั้ง)
+  const [status, setStatus] = useState('loading'); // 'loading' | 'success' | 'error'
   const [error, setError] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedGenre, setSelectedGenre] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);   // ตัวนับสำหรับปุ่ม "ลองใหม่"
 
-  // ---------- ระบบ Pagination ----------
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 12; // กำหนดจำนวนหนังต่อ 1 หน้า (ปรับเปลี่ยนได้ตามต้องการ)
+  // โหลดตอน component เกิด และทุกครั้งที่กด "ลองใหม่" (reloadKey เปลี่ยน)
+  useEffect(() => {
+    let ignore = false;                            // ธงกันคำตอบเก่ามาทับคำตอบใหม่
 
-  const fetchMoviesData = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await getMovies();
-
-      let extractedMovies = [];
-      if (Array.isArray(response)) {
-        extractedMovies = response;
-      } else if (response && typeof response === 'object') {
-        const possibleArray = 
-          response.movies || 
-          response.data || 
-          response.results || 
-          response.items || 
-          response.payload ||
-          Object.values(response).find((val) => Array.isArray(val));
-
-        extractedMovies = Array.isArray(possibleArray) ? possibleArray : [];
+    async function load() {
+      setStatus('loading');
+      try {
+        const list = await getMovies();            // ครั้งแรกของวันยิง API ครั้งถัดไปอ่านจาก localStorage
+        if (!ignore) {
+          setMovies(list);
+          setStatus('success');
+        }
+      } catch (err) {
+        if (!ignore) {
+          setError(err);
+          setStatus('error');
+        }
       }
-
-      setMovies(extractedMovies);
-    } catch (err) {
-      console.error(err);
-      setError(err.message || 'เกิดข้อผิดพลาดในการดึงข้อมูล');
-    } finally {
-      setLoading(false);
     }
-  };
+    load();
 
-  useEffect(() => {
-    fetchMoviesData();
-  }, []);
+    return () => { ignore = true; };               // cleanup: effect รอบเก่าถูกยกเลิก
+  }, [reloadKey]);
 
-  // เมื่อเปลี่ยนคำค้นหาหรือหมวดหมู่ ให้รีเซ็ตกลับไปหน้า 1 เสมอ
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, selectedGenre]);
-
-  if (loading) {
-    return <div className="p-4 text-center">กำลังโหลด...</div>;
-  }
-
-  if (error) {
-    return (
-      <div className="p-4 text-center">
-        <h2 className="text-xl font-bold text-red-500 mb-2">โหลดข้อมูลไม่สำเร็จ</h2>
-        <p className="mb-4 text-gray-600">{error}</p>
-        <button 
-          onClick={fetchMoviesData}
-          className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700"
-        >
-          ลองใหม่
-        </button>
-      </div>
-    );
-  }
-
-  const movieList = Array.isArray(movies) ? movies : [];
-
-  // ดึงรายการหมวดหมู่
-  const genres = Array.from(
-    new Set(
-      movieList
-        .map((m) => m?.genre || m?.category)
-        .filter((g) => Boolean(g) && typeof g === 'string')
-    )
+  // ค่าที่คำนวณจาก state ไม่ต้องเป็น state เอง: รายชื่อแนวที่มีจริง และรายการหลังกรอง
+  const genres = [...new Set(movies.map(m => m.genre).filter(Boolean))];
+  const q = query.trim().toLowerCase();
+  const shown = movies.filter(m =>
+    (genre === 'all' || m.genre === genre) &&
+    (q === '' || m.title.toLowerCase().includes(q) || (m.titleTh ?? '').toLowerCase().includes(q))
   );
 
-  // กรองหนัง
-  const filteredMovies = movieList.filter((movie) => {
-    const titleText = (movie?.title || movie?.titleTh || movie?.name || '').toString().toLowerCase();
-    const queryText = searchQuery.trim().toLowerCase();
-
-    const matchesSearch = queryText === '' ? true : titleText.includes(queryText);
-    const movieGenre = movie?.genre || movie?.category;
-    const matchesGenre = selectedGenre ? movieGenre === selectedGenre : true;
-
-    return matchesSearch && matchesGenre;
-  });
-
-  // คำนวณการแบ่งหน้า (Pagination Logic)
-  const totalPages = Math.ceil(filteredMovies.length / itemsPerPage);
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentMovies = filteredMovies.slice(indexOfFirstItem, indexOfLastItem);
-
-  // ฟังก์ชันดึง URL รูปโปสเตอร์
-  const getPosterUrl = (movie) => {
-    const path = movie?.poster_path || movie?.poster || movie?.image || movie?.cover;
-    if (!path) return 'https://via.placeholder.com/300x450?text=No+Image';
-    if (path.startsWith('http')) return path;
-    if (path.startsWith('/')) return `https://image.tmdb.org/t/p/w500${path}`;
-    return path;
-  };
+  const chipClass = (active) =>
+    'rounded-full border px-3 py-1 text-sm transition ' +
+    (active ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-emerald-200 bg-white text-slate-600 hover:bg-emerald-50');
 
   return (
-    <div className="p-4 max-w-6xl mx-auto">
-      {/* ช่องค้นหา */}
-      <input
-        type="text"
-        placeholder="พิมพ์ชื่อหนัง..."
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        className="border p-2 rounded mb-4 w-full max-w-md"
-      />
-
-      {/* ปุ่มเลือกประเภทหนัง */}
-      {genres.length > 0 && (
-        <div className="flex gap-2 mb-6 flex-wrap">
-          <button
-            onClick={() => setSelectedGenre('')}
-            className={`px-3 py-1 rounded transition ${selectedGenre === '' ? 'bg-emerald-600 text-white' : 'bg-gray-200'}`}
-          >
-            ทั้งหมด
-          </button>
-          {genres.map((genre) => (
-            <button
-              key={genre}
-              onClick={() => setSelectedGenre(selectedGenre === genre ? '' : genre)}
-              className={`px-3 py-1 rounded transition ${selectedGenre === genre ? 'bg-emerald-600 text-white' : 'bg-gray-200'}`}
-            >
-              {genre}
-            </button>
-          ))}
+    <div className="mx-auto max-w-5xl px-4 py-10 md:px-6">
+      <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">หนังทั้งหมด</h1>
+          <p className="text-sm text-slate-500">
+            แหล่งข้อมูล: TMDB (โหลดวันละครั้ง) {status === 'success' && `| พบ ${shown.length} จาก ${movies.length} เรื่อง`}
+          </p>
         </div>
-      )}
+        <input value={query} onChange={(e) => setQuery(e.target.value)}
+               placeholder="พิมพ์ชื่อหนังเพื่อกรอง..."
+               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 md:w-72" />
+      </div>
 
-      {/* รายการหนังประจำหน้านั้นๆ */}
-      {filteredMovies.length === 0 ? (
-        <div className="text-gray-500 py-4">ไม่พบรายการหนัง</div>
-      ) : (
-        <>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 mb-8">
-            {currentMovies.map((movie, index) => {
-              const movieId = movie.id || movie._id || index;
-              const movieTitle = movie.title || movie.titleTh || movie.name || 'ไม่มีชื่อเรื่อง';
-              const movieGenre = movie.genre || movie.category;
-              const posterSrc = getPosterUrl(movie);
+      {/* เมนูเลือกแนวหนัง สร้างจากข้อมูลที่มีจริง ไม่ต้องพิมพ์รายชื่อเอง */}
+      <div className="mb-6 flex flex-wrap gap-2">
+        <button onClick={() => setGenre('all')} className={chipClass(genre === 'all')}>ทุกแนว</button>
+        {genres.map(g => (
+          <button key={g} onClick={() => setGenre(g)} className={chipClass(genre === g)}>{g}</button>
+        ))}
+      </div>
 
-              return (
-                <Link 
-                  key={movieId} 
-                  to={`/movies/${movieId}`}
-                  className="group border rounded-lg overflow-hidden shadow hover:shadow-lg transition bg-white flex flex-col"
-                >
-                  <div className="aspect-[2/3] w-full bg-gray-100 overflow-hidden relative">
-                    <img 
-                      src={posterSrc} 
-                      alt={movieTitle}
-                      className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src = 'https://via.placeholder.com/300x450?text=No+Image';
-                      }}
-                    />
-                  </div>
-                  <div className="p-3 flex-1 flex flex-col justify-between">
-                    <h3 className="font-bold text-base text-gray-800 line-clamp-2">{movieTitle}</h3>
-                    {movieGenre && <span className="text-xs text-gray-500 mt-1 block">{movieGenre}</span>}
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-
-          {/* ---------- แถบปุ่มเลือกหน้าข้างล่าง (Pagination) ---------- */}
-          {totalPages > 1 && (
-            <div className="flex justify-center items-center gap-2 my-8">
-              {/* ปุ่ม ก่อนหน้า */}
-              <button
-                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-                className="px-3 py-1 border rounded text-emerald-600 border-emerald-600 disabled:opacity-40 disabled:border-gray-300 disabled:text-gray-400 hover:bg-emerald-50 transition"
-              >
-                ก่อนหน้า
-              </button>
-
-              {/* ข้อความแสดงสถานะหน้า เช่น "ชุดที่ 1 จาก 9" */}
-              <span className="text-sm text-gray-600 px-2">
-                ชุดที่ <strong className="text-emerald-600">{currentPage}</strong> จาก <strong>{totalPages}</strong>
-              </span>
-
-              {/* ปุ่ม ถัดไป */}
-              <button
-                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                disabled={currentPage === totalPages}
-                className="px-3 py-1 border rounded text-emerald-600 border-emerald-600 disabled:opacity-40 disabled:border-gray-300 disabled:text-gray-400 hover:bg-emerald-50 transition"
-              >
-                ถัดไป
-              </button>
-            </div>
-          )}
-        </>
-      )}
+      {/* ปุ่มลองใหม่ต้องล้าง cache ก่อน ไม่งั้นจะได้ของเก่าหรือ error เดิมซ้ำ */}
+      <MovieGrid movies={shown} status={status} error={error}
+               onRetry = { () => {setReloadKey(k => k + 1); } }/>
     </div>
   );
 }
+
+export default Movies;

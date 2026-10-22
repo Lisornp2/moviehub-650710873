@@ -1,15 +1,14 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../auth/AuthContext';
+import { useNavigate } from 'react-router-dom' 
+import { useAuth } from '../auth/AuthContext'
 
 function Login() {
   const [email, setEmail] = useState('demo@moviehub.test');   // บัญชีทดลองของ mock
   const [password, setPassword] = useState('1234');
   const [error, setError] = useState(null);
   const [status, setStatus] = useState('typing');             // 'typing' | 'submitting'
-  // TODO ขั้นที่ 2: 
-  const { login } = useAuth();   
+  const { login } = useAuth();  
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from || '/';                   // ProtectedRoute ส่งมาบอกว่าเดิมจะไปไหน

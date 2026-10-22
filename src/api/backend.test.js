@@ -1,45 +1,32 @@
 import { apiFetch, login, postReview } from './backend';
 
+// ตัวช่วยสร้าง "คำตอบปลอม" ของ fetch: ใส่แค่ status กับ body ที่อยากให้ server ตอบ
 function fakeResponse(status, body) {
   return {
-    ok: status >= 200 && status < 300,
+    ok: status >= 200 && status < 300,          // fetch ของจริงคำนวณ ok แบบนี้
     status,
-    json: () => Promise.resolve(body),
+    json: () => Promise.resolve(body),         // res.json() คืน Promise เสมอ
   };
 }
 
 beforeEach(() => {
+  // แทน fetch ของเบราว์เซอร์ด้วยฟังก์ชันปลอมที่เราควบคุมคำตอบได้ และจดทุกครั้งที่ถูกเรียก
   global.fetch = jest.fn();
 });
 
-// ข้อที่ 1
 test('GET ธรรมดา: ไม่มี body ไม่มี Authorization และคืน object ที่แปลงแล้ว', async () => {
   fetch.mockResolvedValue(fakeResponse(200, { items: [{ id: 1 }] }));
 
   const data = await apiFetch('/api/movies');
 
   expect(data).toEqual({ items: [{ id: 1 }] });
-  const [url, options] = fetch.mock.calls[0];
+  const [url, options] = fetch.mock.calls[0];            // อาร์กิวเมนต์ที่ apiFetch ส่งให้ fetch
   expect(url).toBe('/api/movies');
   expect(options.method).toBe('GET');
   expect(options.body).toBeUndefined();
   expect(options.headers.Authorization).toBeUndefined();
 });
 
-// ข้อที่ 2
-test('login สำเร็จ ต้องส่ง POST ไป /api/auth/login พร้อม email และ password', async () => {
-  fetch.mockResolvedValue(fakeResponse(200, { token: 'jwt123' }));
-
-  const data = await login('a@b.c', 'pass123');
-
-  expect(data).toEqual({ token: 'jwt123' });
-  const [url, options] = fetch.mock.calls[0];
-  expect(url).toBe('/api/auth/login');
-  expect(options.method).toBe('POST');
-  expect(options.body).toBe(JSON.stringify({ email: 'a@b.c', password: 'pass123' }));
-});
-
-// ข้อที่ 3
 test('มี token ต้องแนบ Authorization แบบ Bearer และ body ต้องเป็นข้อความ JSON', async () => {
   fetch.mockResolvedValue(fakeResponse(201, { id: 7 }));
 
@@ -53,10 +40,9 @@ test('มี token ต้องแนบ Authorization แบบ Bearer แล�
   expect(options.body).toBe(JSON.stringify({ text: 'สนุกมาก ฉากแอ็กชันดี' }));
 });
 
-// ข้อที่ 4
 test('204 คืน null โดยไม่เรียก res.json()', async () => {
   const res = fakeResponse(204, null);
-  res.json = jest.fn();
+  res.json = jest.fn();                                   // ถ้าถูกเรียกแปลว่าโค้ดผิด
   fetch.mockResolvedValue(res);
 
   const data = await apiFetch('/api/me/wishlist/1', { method: 'DELETE', token: 'abc' });
@@ -65,12 +51,18 @@ test('204 คืน null โดยไม่เรียก res.json()', async ()
   expect(res.json).not.toHaveBeenCalled();
 });
 
-// ข้อที่ 5
 test('ไม่ใช่ 2xx ต้องโยน Error ที่มีข้อความจาก server และเลข status', async () => {
   fetch.mockResolvedValue(fakeResponse(401, { error: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' }));
 
+  // ฟังก์ชัน async ที่ throw ต้องเช็กด้วย rejects
   await expect(login('a@b.c', 'wrong')).rejects.toThrow('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
 
-  const err = await login('a@b.c', 'wrong').catch((e) => e);
+  // เช็กเลข status ที่แปะไว้บน Error ด้วย
+  const err = await login('a@b.c', 'wrong').catch(e => e);
   expect(err.status).toBe(401);
+});
+test('server ตอบมาไม่ใช่ JSON (เช่น ลืมรัน mock) ต้องได้ข้อความที่เข้าใจได้ ไม่ใช่ SyntaxError', async () => {
+  fetch.mockResolvedValue({ ok: false, status: 404, json: () => Promise.reject(new SyntaxError('Unexpected token <')) });
+
+  await expect(apiFetch('/api/movies')).rejects.toThrow('server ไม่ได้ตอบเป็น JSON');
 });

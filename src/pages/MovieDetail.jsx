@@ -3,28 +3,25 @@ import { useParams, Link } from 'react-router-dom';
 import ReviewForm from '../components/ReviewForm';
 import ReviewList from '../components/ReviewList';
 import MovieActions from '../components/MovieActions';
-import { useAuth } from '../auth/AuthContext';
-
-// ✅ แยก import: ข้อมูลหนังดึงจาก TMDB, ส่วนรีวิวดึงจาก Backend
-import { getMovie } from '../api/tmdb';
+import { getMovie } from '../api/backend';
+import { useAuth } from '../auth/AuthContext';  
 import { getReviews, postReview } from '../api/backend';
 
 function MovieDetail() {
-  const { id } = useParams();
+  const { id } = useParams();                       // ได้เป็น string เสมอ (ตอนนี้คือรหัสของ TMDB)
   const [movie, setMovie] = useState(null);
   const [status, setStatus] = useState('loading');
   const [error, setError] = useState(null);
-  const [reviews, setReviews] = useState([]);
-  
-  const { isLoggedIn, token, member } = useAuth(); 
+  const [reviews, setReviews] = useState([]);       // รีวิวจาก backend ของเรา (ไม่ใช่ TMDB)
+  const { isLoggedIn, token, member } = useAuth();     
 
-  // โหลดข้อมูลรายละเอียดหนังจาก TMDB
-  useEffect(() => {
+    // โหลดรีวิวของเรื่องนี้จาก backend ของเรา แยก effect จาก TMDB เพราะคนละ server
+    useEffect(() => {
     let ignore = false;
     async function load() {
       setStatus('loading');
       try {
-        const m = await getMovie(id); // ✅ ใช้ getMovie จาก tmdb.js
+        const m = await getMovie(id); // ✅ ใช้ getMovie(id) จาก backend
         if (!ignore) { setMovie(m); setStatus('success'); }
       } catch (err) {
         if (!ignore) { setError(err); setStatus('error'); }
@@ -38,12 +35,12 @@ function MovieDetail() {
   useEffect(() => {
     let ignore = false;
     getReviews(id)
-      .then(data => { if (!ignore) setReviews(data?.items || []); })
+      .then(data => { if (!ignore) setReviews(data.items); })
       .catch(() => { if (!ignore) setReviews([]); });
     return () => { ignore = true; };
   }, [id]);
 
-  // ส่งรีวิวไปยัง Backend
+  // ส่งรีวิว
   async function handleReviewSubmit(text) {
     const saved = await postReview(id, text, token);
     setReviews([
@@ -51,6 +48,13 @@ function MovieDetail() {
       ...reviews,
     ]);
   }
+  // ส่งรีวิวจริง: ReviewForm เรียกฟังก์ชันนี้ตอนกดส่ง ถ้า throw ฟอร์มจะโชว์ข้อความ error เอง
+                                     // id เปลี่ยน = โหลดเรื่องใหม่
+
+  // TODO ขั้นที่ 3 (ก): เปลี่ยน effect นี้ให้โหลดรีวิวจริงจาก backend
+  //   getReviews(id) ได้ { items } แล้ว setReviews(items)  dependency คือ [id] เหมือนตัวบน
+  //   (แยกจาก effect ของ TMDB เพราะคนละ server พังคนละแบบ ไม่ควรให้รีวิวล่มแล้วหน้าทั้งหน้าพัง)
+
 
   if (status === 'loading') {
     return (
@@ -71,7 +75,7 @@ function MovieDetail() {
     return (
       <div className="mx-auto max-w-xl px-4 py-20 text-center">
         <p className="text-lg text-slate-700">ไม่พบหนังเรื่องนี้ 😢</p>
-        <p className="text-sm text-slate-400">{error?.message || 'เกิดข้อผิดพลาดในการดึงข้อมูล'}</p>
+        <p className="text-sm text-slate-400">{error.message}</p>
         <Link to="/movies" className="mt-6 inline-block text-sm text-emerald-600 hover:underline">กลับไปหน้าหนังทั้งหมด</Link>
       </div>
     );
@@ -82,23 +86,22 @@ function MovieDetail() {
       <Link to="/movies" className="text-sm text-slate-500 hover:text-emerald-600">กลับไปหน้าหนังทั้งหมด</Link>
 
       <div className="mt-4 flex flex-col gap-8 md:flex-row">
-        {movie?.posterPath || movie?.poster ? (
-          <img src={movie.posterPath ? `https://image.tmdb.org/t/p/w500${movie.posterPath}` : movie.poster} 
-               alt={`โปสเตอร์ ${movie.title}`}
+        {movie.poster ? ( 
+          <img src={movie.poster} alt={`โปสเตอร์ ${movie.title}`}
                className="w-48 shrink-0 self-start rounded-xl border border-slate-200" />
         ) : (
           <div className="grid aspect-[2/3] w-48 shrink-0 place-items-center rounded-xl bg-slate-100 text-5xl">🎬</div>
         )}
 
         <div className="flex-1">
-          <h1 className="text-2xl font-semibold text-slate-900 md:text-3xl">{movie?.title}</h1>
-          {movie?.titleTh && <p className="mt-1 text-slate-500">{movie.titleTh}</p>}
+          <h1 className="text-2xl font-semibold text-slate-900 md:text-3xl">{movie.title}</h1>
+          {movie.titleTh && <p className="mt-1 text-slate-500">{movie.titleTh}</p>}
           <p className="mt-2 text-sm text-slate-500">
-            {movie?.releaseDate || movie?.year}{movie?.genre && ` | ${movie.genre}`}{(movie?.voteAverage || movie?.rating) != null && ` | ⭐ ${movie?.voteAverage?.toFixed(1) || movie?.rating}`}
+            {movie.year}{movie.genre && ` | ${movie.genre}`}{movie.rating != null && ` | ⭐ ${movie.rating}`}
           </p>
-          <p className="mt-4 leading-relaxed text-slate-700">{movie?.overview || movie?.detail}</p>
+          <p className="mt-4 leading-relaxed text-slate-700">{movie.detail}</p>
 
-          <MovieActions movieId={movie?.id || id} />
+          <MovieActions movieId={movie.id} />
 
           <div className="mt-8">
             <h2 className="mb-3 text-lg font-semibold text-slate-900">รีวิวจากสมาชิก ({reviews.length})</h2>
@@ -107,7 +110,7 @@ function MovieDetail() {
 
           <div className="mt-6 rounded-xl border border-emerald-100 bg-white p-5">
             {isLoggedIn ? (
-              <ReviewForm key={movie?.id || id} movieTitle={movie?.title} onSubmit={handleReviewSubmit} />
+              <ReviewForm key={movie.id} movieTitle={movie.title} onSubmit={handleReviewSubmit} />
             ) : (
               <p className="text-sm text-slate-500">
                 <Link to="/login" className="text-emerald-600 hover:underline">เข้าสู่ระบบ</Link> เพื่อเขียนรีวิว

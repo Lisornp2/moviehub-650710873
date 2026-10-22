@@ -1,4 +1,4 @@
-// Backend จำลองของ MovieHub: ทำตัวเหมือน API ของทีม Go ทุกประการ (path, JSON, status code)
+                            // Backend จำลองของ MovieHub: ทำตัวเหมือน API ของทีม Go ทุกประการ (path, JSON, status code)
 // แต่เก็บข้อมูลในหน่วยความจำ ปิดแล้วหาย  รัน:  npm run mock   (พอร์ต 4000)
 // สัญญาทั้งหมดอยู่ใน docs/db-schema.md หัวข้อ 6 และ 7
 
@@ -11,7 +11,7 @@ app.use(cors());                                   // Go จริงต้อ�
 app.use(express.json());                           // แปลง body ที่เป็น JSON ให้เป็น object (req.body)
 
 // log ทุก request จะได้เห็นหน้าห้องว่าหน้าเว็บยิงอะไรมา
-app.use((req, res, next) => {
+app.use((req, res, next) => {                                       
   res.on('finish', () => console.log(`${req.method} ${req.originalUrl} -> ${res.statusCode}`));
   next();
 });

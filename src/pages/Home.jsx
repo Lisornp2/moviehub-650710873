@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import FeaturedCarousel from '../components/FeaturedCarousel';
-
-// ✅ สลับกลับมาดึงจาก tmdb.js
-import { getMovies } from '../api/tmdb';
+import { useEffect } from 'react' 
+import { getMovies } from '../api/backend'
 
 const STEPS = [
   { n: 1, file: 'src/api/tmdb.js', what: 'เขียนส่วน fetch ใน getJSON' },
@@ -25,7 +24,7 @@ function shuffle(list) {
 }
 
 function Home() {
-  const [picks, setPicks] = useState([]);   // เริ่มว่าง รอข้อมูลจาก API แล้วค่อยสุ่ม
+    const [picks, setPicks] = useState([]);   // เริ่มว่าง รอข้อมูลจาก API แล้วค่อยสุ่ม
 
   // ใช้ getMovies() ตัวเดียวกับหน้า Movies ถ้าวันนี้เคยโหลดแล้วจะได้จาก localStorage ทันที
   useEffect(() => {
@@ -35,6 +34,10 @@ function Home() {
       .catch(() => { if (!ignore) setPicks([]); });   // พลาดก็แค่ไม่มีหนังแนะนำ หน้าแรกไม่ควรพัง
     return () => { ignore = true; };
   }, []);
+
+  // สุ่มครั้งเดียวตอน component เกิด แล้วจำไว้ใน state (กดเลื่อนแล้วลำดับไม่เปลี่ยน)
+  // TODO ขั้นที่ 5: เปลี่ยนเป็น useState([]) แล้วใช้ useEffect เรียก getMovies() แล้ว setPicks(shuffle(list))
+
 
   return (
     <div className="mx-auto max-w-5xl px-4 md:px-6">
@@ -63,7 +66,7 @@ function Home() {
         <div className="mb-4 flex items-end justify-between">
           <div>
             <h2 className="text-xl font-semibold text-slate-900">หนังแนะนำ</h2>
-            <p className="text-sm text-slate-500">สุ่มลำดับใหม่ทุกครั้งที่เปิดหน้า แหล่งข้อมูล: TMDB</p>
+            <p className="text-sm text-slate-500">สุ่มลำดับใหม่ทุกครั้งที่เปิดหน้า แหล่งข้อมูล: data.js</p>
           </div>
           <button onClick={() => setPicks(shuffle(picks))} className="text-sm text-emerald-600 hover:underline">
             สุ่มใหม่
