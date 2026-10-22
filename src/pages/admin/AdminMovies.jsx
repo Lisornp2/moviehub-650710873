@@ -18,7 +18,7 @@ function AdminMovies() {
       setStatus('loading');
       try {
         const list = await getMovies();
-        if (!ignore) { setMovies(list); setStatus('success'); }
+        if (!ignore) { setMovies(Array.isArray(list) ? list : []); setStatus('success'); }
       } catch (err) {
         if (!ignore) { setError(err); setStatus('error'); }
       }
@@ -27,9 +27,10 @@ function AdminMovies() {
     return () => { ignore = true; };
   }, [reloadKey]);
 
-  const q = query.trim().toLowerCase();
-  const shown = movies.filter(m =>
-    q === '' || m.title.toLowerCase().includes(q) || (m.titleTh ?? '').toLowerCase().includes(q) || String(m.id) === q
+  const q = (query || '').trim().toLowerCase();
+  const safeMovies = Array.isArray(movies) ? movies : [];
+  const shown = safeMovies.filter(m =>
+    q === '' || (m?.title || '').toLowerCase().includes(q) || (m?.titleTh ?? '').toLowerCase().includes(q) || String(m?.id) === q
   );
 
   return (
@@ -37,7 +38,7 @@ function AdminMovies() {
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-slate-900">หนังทั้งหมด</h2>
-          {status === 'success' && <p className="text-sm text-slate-500">แสดง {shown.length} จาก {movies.length} เรื่อง</p>}
+          {status === 'success' && <p className="text-sm text-slate-500">แสดง {shown.length} จาก {safeMovies.length} เรื่อง</p>}
         </div>
         <div className="flex gap-2">
           <input value={query} onChange={(e) => setQuery(e.target.value)}
@@ -61,24 +62,24 @@ function AdminMovies() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {shown.map(m => (
-                <tr key={m.id} className="hover:bg-emerald-50/40">
+              {shown?.map(m => (
+                <tr key={m?.id} className="hover:bg-emerald-50/40">
                   <td className="px-4 py-2">
                     <div className="flex items-center gap-3">
-                      {m.poster
+                      {m?.poster
                         ? <img src={m.poster} alt="" className="h-12 w-8 rounded object-cover" />
                         : <div className="grid h-12 w-8 place-items-center rounded bg-slate-100 text-xs">🎬</div>}
                       <div className="min-w-0">
-                        <p className="truncate font-medium text-slate-900">{m.title}</p>
-                        <p className="truncate text-xs text-slate-500">{m.titleTh ?? '(ยังไม่มีชื่อไทย)'} <span className="text-slate-300">#{m.id}</span></p>
+                        <p className="truncate font-medium text-slate-900">{m?.title || 'ไม่ระบุชื่อ'}</p>
+                        <p className="truncate text-xs text-slate-500">{m?.titleTh ?? '(ยังไม่มีชื่อไทย)'} <span className="text-slate-300">#{m?.id}</span></p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-2 text-slate-600">{m.genre ?? '-'}</td>
-                  <td className="px-4 py-2 text-slate-600">{m.year ?? '-'}</td>
-                  <td className="px-4 py-2 text-slate-600">{m.rating ? `⭐ ${m.rating}` : '-'}</td>
+                  <td className="px-4 py-2 text-slate-600">{m?.genre ?? '-'}</td>
+                  <td className="px-4 py-2 text-slate-600">{m?.year ?? '-'}</td>
+                  <td className="px-4 py-2 text-slate-600">{m?.rating ? `⭐ ${m.rating}` : '-'}</td>
                   <td className="px-4 py-2 text-right">
-                    <Link to={`/admin/movies/${m.id}`} className="text-emerald-600 hover:underline">แก้ไข</Link>
+                    <Link to={`/admin/movies/${m?.id}`} className="text-emerald-600 hover:underline">แก้ไข</Link>
                   </td>
                 </tr>
               ))}

@@ -33,13 +33,15 @@ function MovieGrid({ movies, status, error, onRetry }) {
     );
   }
 
-  if (!movies || movies.length === 0) {
+  const safeMovies = Array.isArray(movies) ? movies : [];
+
+  if (safeMovies.length === 0) {
     return <p className="py-16 text-center text-slate-400">ไม่พบหนังที่ค้นหา ลองคำอื่นดู</p>;
   }
 
   return (
     <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-      {movies.map(m => <MovieCard key={m.id} movie={m} />)}
+      {safeMovies?.map(m => <MovieCard key={m?.id} movie={m} />)}
     </div>
   );
 }

@@ -16,11 +16,11 @@ const EMPTY = {
 // ตรวจชั้นแรกในเบราว์เซอร์ (กติกาเดียวกับ validateMovie ใน Go)
 function validate(f) {
   const errs = {};
-  if (!f.title.trim()) errs.title = 'ต้องมีชื่อเรื่อง';
-  if (f.originalLanguage && f.originalLanguage.trim().length !== 2) errs.originalLanguage = 'รหัสภาษาต้อง 2 ตัวอักษร เช่น en, th, ja';
-  if (f.posterPath && !/^(\/|https?:\/\/)/.test(f.posterPath.trim())) errs.posterPath = 'ต้องขึ้นต้นด้วย / (path ของ TMDB) หรือ https://';
-  if (f.releaseDate && !/^\d{4}-\d{2}-\d{2}$/.test(f.releaseDate)) errs.releaseDate = 'รูปแบบ YYYY-MM-DD';
-  if (f.id && !/^\d+$/.test(f.id)) errs.id = 'ต้องเป็นตัวเลข';
+  if (!f?.title?.trim()) errs.title = 'ต้องมีชื่อเรื่อง';
+  if (f?.originalLanguage && f.originalLanguage.trim().length !== 2) errs.originalLanguage = 'รหัสภาษาต้อง 2 ตัวอักษร เช่น en, th, ja';
+  if (f?.posterPath && !/^(\/|https?:\/\/)/.test(f.posterPath.trim())) errs.posterPath = 'ต้องขึ้นต้นด้วย / (path ของ TMDB) หรือ https://';
+  if (f?.releaseDate && !/^\d{4}-\d{2}-\d{2}$/.test(f.releaseDate)) errs.releaseDate = 'รูปแบบ YYYY-MM-DD';
+  if (f?.id && !/^\d+$/.test(f.id)) errs.id = 'ต้องเป็นตัวเลข';
   return errs;
 }
 
@@ -28,15 +28,15 @@ function validate(f) {
 function toPayload(f) {
   const nz = (s) => (s && s.trim() ? s.trim() : null);
   return {
-    title: f.title.trim(),
-    titleTh: nz(f.titleTh),
-    originalTitle: f.originalTitle.trim(),
-    originalLanguage: f.originalLanguage.trim() || 'en',
-    overview: nz(f.overview),
-    overviewTh: nz(f.overviewTh),
-    posterPath: nz(f.posterPath),
-    releaseDate: nz(f.releaseDate),
-    genreId: f.genreId ? Number(f.genreId) : null,
+    title: f?.title?.trim() || '',
+    titleTh: nz(f?.titleTh),
+    originalTitle: f?.originalTitle?.trim() || '',
+    originalLanguage: f?.originalLanguage?.trim() || 'en',
+    overview: nz(f?.overview),
+    overviewTh: nz(f?.overviewTh),
+    posterPath: nz(f?.posterPath),
+    releaseDate: nz(f?.releaseDate),
+    genreId: f?.genreId ? Number(f.genreId) : null,
   };
 }
 
@@ -66,10 +66,10 @@ function AdminMovieForm() {
       try {
         const [gs, movie] = await Promise.all([getGenres(), isEdit ? getAdminMovie(id, token) : null]);
         if (ignore) return;
-        setGenres(gs);
+        setGenres(Array.isArray(gs) ? gs : []);
         if (movie) {
           setForm({
-            id: String(movie.id),
+            id: String(movie.id ?? ''),
             title: movie.title ?? '', titleTh: movie.titleTh ?? '',
             originalTitle: movie.originalTitle ?? '', originalLanguage: movie.originalLanguage ?? 'en',
             overview: movie.overview ?? '', overviewTh: movie.overviewTh ?? '',
@@ -106,12 +106,12 @@ function AdminMovieForm() {
     try {
       if (isEdit) {
         const m = await updateMovie(id, toPayload(form), token);
-        setImpact(m.impact);
+        setImpact(m?.impact);
         setSaved(true);
       } else {
         const payload = { ...toPayload(form), id: form.id ? Number(form.id) : 0 };
         const m = await createMovie(payload, token);
-        navigate(`/admin/movies/${m.id}`, { replace: true });   // เพิ่มเสร็จ ไปต่อที่หน้าแก้ไขของเรื่องนั้น
+        navigate(`/admin/movies/${m?.id}`, { replace: true });   // เพิ่มเสร็จ ไปต่อที่หน้าแก้ไขของเรื่องนั้น
       }
     } catch (err) {
       setServerError(err.message);                 // 400 ช่องไหนผิด / 409 เลขซ้ำ ข้อความมาจาก Go
@@ -136,11 +136,13 @@ function AdminMovieForm() {
   if (status === 'loading') return <Loading />;
   if (status === 'error') return <ErrorBox error={loadError} />;
 
-  const posterPreview = form.posterPath.trim()
+  const posterPreview = form?.posterPath?.trim()
     ? (form.posterPath.startsWith('http') ? form.posterPath : 'https://image.tmdb.org/t/p/w300' + form.posterPath)
     : null;
   const label = 'block text-sm font-medium text-slate-700';
   const fieldErr = (k) => errors[k] && <p className="mt-1 text-xs text-red-600">{errors[k]}</p>;
+
+  const safeGenres = Array.isArray(genres) ? genres : [];
 
   return (
     <div>
@@ -181,7 +183,7 @@ function AdminMovieForm() {
               <label className={label}>แนวหลัก</label>
               <select value={form.genreId} onChange={set('genreId')} className={inputClass}>
                 <option value="">ไม่ระบุ</option>
-                {genres.map(g => <option key={g.id} value={g.id}>{g.nameTh ?? g.nameEn} ({g.nameEn})</option>)}
+                {safeGenres?.map(g => <option key={g?.id} value={g?.id}>{g?.nameTh ?? g?.nameEn} ({g?.nameEn})</option>)}
               </select>
             </div>
             <div>
@@ -227,19 +229,19 @@ function AdminMovieForm() {
             <div className="rounded-xl border border-emerald-100 bg-white p-3 text-sm text-slate-600">
               <p className="font-medium text-slate-900">ข้อมูลที่ผูกกับเรื่องนี้</p>
               <ul className="mt-1 space-y-0.5">
-                <li>รีวิว {impact.reviews}</li>
-                <li>โหวต {impact.votes}</li>
-                <li>อยากดู {impact.wishlist}</li>
+                <li>รีวิว {impact?.reviews ?? 0}</li>
+                <li>โหวต {impact?.votes ?? 0}</li>
+                <li>อยากดู {impact?.wishlist ?? 0}</li>
               </ul>
             </div>
           )}
         </aside>
       </form>
 
-      <ConfirmBox open={confirmDelete} title={`ลบ "${form.title}" ?`} confirmText="ลบถาวร"
+      <ConfirmBox open={confirmDelete} title={`ลบ "${form?.title}" ?`} confirmText="ลบถาวร"
                   busy={deleting} onConfirm={handleDelete} onCancel={() => setConfirmDelete(false)}>
-        {impact && (impact.reviews + impact.votes + impact.wishlist > 0) ? (
-          <p>รีวิว {impact.reviews} รายการ โหวต {impact.votes} รายการ และรายการอยากดู {impact.wishlist} รายการของสมาชิกจะถูกลบตามไปด้วย ย้อนกลับไม่ได้</p>
+        {impact && ((impact?.reviews ?? 0) + (impact?.votes ?? 0) + (impact?.wishlist ?? 0) > 0) ? (
+          <p>รีวิว {impact?.reviews ?? 0} รายการ โหวต {impact?.votes ?? 0} รายการ และรายการอยากดู {impact?.wishlist ?? 0} รายการของสมาชิกจะถูกลบตามไปด้วย ย้อนกลับไม่ได้</p>
         ) : (
           <p>ยังไม่มีสมาชิกคนไหนรีวิว โหวต หรือเพิ่มเรื่องนี้ในรายการอยากดู ลบได้โดยไม่กระทบใคร</p>
         )}
