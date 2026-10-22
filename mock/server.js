@@ -1,4 +1,4 @@
-// Backend จำลองของ MovieHub: ทำตัวเหมือน API ของทีม Go ทุกประการ (path, JSON, status code)
+                            // Backend จำลองของ MovieHub: ทำตัวเหมือน API ของทีม Go ทุกประการ (path, JSON, status code)
 // แต่เก็บข้อมูลในหน่วยความจำ ปิดแล้วหาย  รัน:  npm run mock   (พอร์ต 4000)
 // สัญญาทั้งหมดอยู่ใน docs/db-schema.md หัวข้อ 6 และ 7
 
@@ -44,10 +44,9 @@ function requireAuth(req, res, next) {
 app.get('/api/movies', (req, res) => {
   const q = (req.query.q || '').trim().toLowerCase();
   const items = q
-    ? movies.filter(m => (m.title && m.title.toLowerCase().includes(q)) || (m.titleTh || '').toLowerCase().includes(q))
+    ? movies.filter(m => m.title.toLowerCase().includes(q) || (m.titleTh || '').toLowerCase().includes(q))
     : movies;
-  // ป้องกันกรณี items เป็น null/undefined ให้ส่งเป็นอาเรย์ว่างเสมอ
-  res.json({ items: Array.isArray(items) ? items : [] });
+  res.json({ items });
 });
 
 app.get('/api/movies/:id', (req, res) => {
@@ -93,14 +92,14 @@ app.get('/api/movies/:id/reviews', (req, res) => {
   const movieId = Number(req.params.id);
   const items = db.reviews
     .filter(r => r.movieId === movieId)
-    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .map(r => {
-      const m = db.members.find(x => x.id === r.memberId) || { id: 0, displayName: 'Unknown' };
+      const m = db.members.find(x => x.id === r.memberId);
       const v = db.votes.find(x => x.memberId === r.memberId && x.movieId === movieId);
       return { id: r.id, text: r.text, createdAt: r.createdAt, updatedAt: r.updatedAt,
                member: { id: m.id, displayName: m.displayName }, score: v ? v.score : null };
     });
-  res.json({ items: Array.isArray(items) ? items : [] });
+  res.json({ items });
 });
 
 app.post('/api/movies/:id/reviews', requireAuth, (req, res) => {
@@ -146,9 +145,9 @@ app.delete('/api/movies/:id/vote', requireAuth, (req, res) => {
 app.get('/api/me/wishlist', requireAuth, (req, res) => {
   const items = db.wishlist
     .filter(w => w.memberId === req.member.id)
-    .sort((a, b) => (b.addedAt || '').localeCompare(a.addedAt || ''))
+    .sort((a, b) => b.addedAt.localeCompare(a.addedAt))
     .map(w => ({ ...(findMovie(w.movieId) || { id: w.movieId, title: `หนัง #${w.movieId}` }), note: w.note, addedAt: w.addedAt }));
-  res.json({ items: Array.isArray(items) ? items : [] });
+  res.json({ items });
 });
 
 app.put('/api/me/wishlist/:movieId', requireAuth, (req, res) => {

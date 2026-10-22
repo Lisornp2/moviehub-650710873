@@ -3,7 +3,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { getAdminMembers, setMemberRole } from '../../api/backend';
 import { ErrorBox, Loading, ConfirmBox, inputClass } from '../../components/admin/AdminStates';
 
-const dateTH = (iso) => iso ? new Date(iso).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
+const dateTH = (iso) => new Date(iso).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
 
 // รายชื่อสมาชิก + ปุ่มเลื่อน/ลดบทบาท (ของตัวเองกดไม่ได้ Go ก็ไม่ยอมเช่นกัน)
 function AdminMembers() {
@@ -23,7 +23,7 @@ function AdminMembers() {
       setStatus('loading');
       try {
         const list = await getAdminMembers(token);
-        if (!ignore) { setMembers(Array.isArray(list) ? list : []); setStatus('success'); }
+        if (!ignore) { setMembers(list); setStatus('success'); }
       } catch (err) {
         if (!ignore) { setError(err); setStatus('error'); }
       }
@@ -33,14 +33,12 @@ function AdminMembers() {
   }, [token, reloadKey]);
 
   async function confirmRole() {
-    if (!target) return;
     const nextRole = target.role === 'admin' ? 'member' : 'admin';
     setBusy(true);
     setActionError(null);
     try {
       const updated = await setMemberRole(target.id, nextRole, token);
-      const safeMembers = Array.isArray(members) ? members : [];
-      setMembers(safeMembers.map(m => (m.id === updated.id ? updated : m)));   // แทนที่คนเดิมด้วยข้อมูลที่ server ยืนยัน
+      setMembers(members.map(m => (m.id === updated.id ? updated : m)));   // แทนที่คนเดิมด้วยข้อมูลที่ server ยืนยัน
       setTarget(null);
     } catch (err) {
       setActionError(err.message);
@@ -49,20 +47,17 @@ function AdminMembers() {
     }
   }
 
-  const q = (query || '').trim().toLowerCase();
-  const safeMembers = Array.isArray(members) ? members : [];
-  const shown = safeMembers.filter(m =>
-    q === '' || (m?.displayName || '').toLowerCase().includes(q) || (m?.email || '').toLowerCase().includes(q)
+  const q = query.trim().toLowerCase();
+  const shown = members.filter(m =>
+    q === '' || m.displayName.toLowerCase().includes(q) || m.email.toLowerCase().includes(q)
   );
-
-  const adminCount = safeMembers.filter(m => m?.role === 'admin').length;
 
   return (
     <div>
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-slate-900">สมาชิก</h2>
-          {status === 'success' && <p className="text-sm text-slate-500">ทั้งหมด {safeMembers.length} คน (admin {adminCount})</p>}
+          {status === 'success' && <p className="text-sm text-slate-500">ทั้งหมด {members.length} คน (admin {members.filter(m => m.role === 'admin').length})</p>}
         </div>
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นชื่อหรืออีเมล" className={inputClass + ' md:w-64'} />
       </div>
@@ -82,24 +77,24 @@ function AdminMembers() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {shown?.map(m => {
-                const isMe = m?.id === me?.id;
+              {shown.map(m => {
+                const isMe = m.id === me?.id;
                 return (
-                  <tr key={m?.id} className="hover:bg-emerald-50/40">
+                  <tr key={m.id} className="hover:bg-emerald-50/40">
                     <td className="px-4 py-2">
-                      <p className="font-medium text-slate-900">{m?.displayName || 'ไม่ระบุชื่อ'} {isMe && <span className="text-xs text-slate-400">(คุณ)</span>}</p>
-                      <p className="text-xs text-slate-500">{m?.email || '-'}</p>
+                      <p className="font-medium text-slate-900">{m.displayName} {isMe && <span className="text-xs text-slate-400">(คุณ)</span>}</p>
+                      <p className="text-xs text-slate-500">{m.email}</p>
                     </td>
                     <td className="px-4 py-2">
-                      <span className={'rounded-full px-2 py-0.5 text-xs ' + (m?.role === 'admin' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600')}>
-                        {m?.role || 'member'}
+                      <span className={'rounded-full px-2 py-0.5 text-xs ' + (m.role === 'admin' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600')}>
+                        {m.role}
                       </span>
                     </td>
-                    <td className="px-4 py-2 text-slate-600">{dateTH(m?.createdAt)}</td>
+                    <td className="px-4 py-2 text-slate-600">{m.createdAt ? dateTH(m.createdAt) : '-'}</td>
                     <td className="px-4 py-2 text-right">
                       <button onClick={() => setTarget(m)} disabled={isMe}
                               className="text-emerald-600 hover:underline disabled:cursor-not-allowed disabled:text-slate-300">
-                        {m?.role === 'admin' ? 'ลดเป็น member' : 'เลื่อนเป็น admin'}
+                        {m.role === 'admin' ? 'ลดเป็น member' : 'เลื่อนเป็น admin'}
                       </button>
                     </td>
                   </tr>

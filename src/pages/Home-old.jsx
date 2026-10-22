@@ -15,8 +15,7 @@ const STEPS = [
 
 // สลับลำดับแบบสุ่มบนสำเนา ไม่แตะ array เดิม
 function shuffle(list) {
-  const safeList = Array.isArray(list) ? list : [];
-  const copy = [...safeList];
+  const copy = [...list];
   for (let i = copy.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [copy[i], copy[j]] = [copy[j], copy[i]];
@@ -70,12 +69,12 @@ function Home() {
         <h2 className="text-xl font-semibold text-slate-900">แผนที่ของโปรเจกต์นี้</h2>
         <p className="text-sm text-slate-500">หน้าตาเสร็จแล้ว เหลือเติมส่วนที่คุยกับ API ทีละขั้น</p>
         <ol className="mt-4 divide-y divide-emerald-100 rounded-xl border border-emerald-100 bg-white">
-          {STEPS?.map(s => (
-            <li key={s?.n} className="flex items-center gap-4 px-4 py-3">
-              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-emerald-50 text-sm font-medium text-emerald-700">{s?.n}</span>
+          {STEPS.map(s => (
+            <li key={s.n} className="flex items-center gap-4 px-4 py-3">
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-emerald-50 text-sm font-medium text-emerald-700">{s.n}</span>
               <div className="min-w-0">
-                <p className="text-sm text-slate-900">{s?.what}</p>
-                <code className="text-xs text-slate-400">{s?.file}</code>
+                <p className="text-sm text-slate-900">{s.what}</p>
+                <code className="text-xs text-slate-400">{s.file}</code>
               </div>
             </li>
           ))}

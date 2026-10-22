@@ -42,8 +42,7 @@ export function toMovie(m, genreMap = {}) {
 async function getGenreMap() {
   const data = await getJSON('/genre/movie/list');
   const map = {};
-  const genres = data?.genres || [];
-  for (const g of genres) map[g.id] = g.name;   // [{id: 28, name: 'แอ็คชั่น'}, ...] เป็น {28: 'แอ็คชั่น'}
+  for (const g of data.genres) map[g.id] = g.name;   // [{id: 28, name: 'แอ็คชั่น'}, ...] เป็น {28: 'แอ็คชั่น'}
   return map;
 }
 
@@ -53,9 +52,8 @@ export async function getNowPlaying(pages = 3) {
   const all = [];
   for (let page = 1; page <= pages; page++) {
     const data = await getJSON('/movie/now_playing', { region: 'TH', page });
-    const results = data?.results || [];
-    all.push(...results);
-    if (page >= (data?.total_pages || 1)) break;             // มีไม่ถึง 3 หน้าก็หยุด
+    all.push(...data.results);
+    if (page >= data.total_pages) break;             // มีไม่ถึง 3 หน้าก็หยุด
   }
   const unique = [...new Map(all.map(m => [m.id, m])).values()];  // กันเรื่องซ้ำข้ามหน้า
   return unique.map(m => toMovie(m, genreMap));
@@ -70,8 +68,7 @@ export function getMovies() {
 // ค้นหาที่ server (ใช้ในหน้า API Lab เพื่อดู JSON ดิบ หน้า Movies กรองในเครื่องแทน)
 export async function searchMovies(query) {
   const data = await getJSON('/search/movie', { query });
-  const results = data?.results || [];
-  return results.map(toMovie);
+  return data.results.map(toMovie);
 }
 
 // รายละเอียดเรื่องเดียว (ได้ genres เป็นชื่อมาเลย ไม่ต้องใช้ genreMap)
