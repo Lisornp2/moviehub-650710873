@@ -35,11 +35,8 @@ function Login() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#09090f] px-5 py-12 text-white">
-
       <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#14141f] p-8 shadow-2xl shadow-purple-950/20">
-
         <div className="text-center">
-
           <Link to="/" className="text-3xl font-black">
             <span className="text-purple-500">GAME</span>KEY
             <span className="ml-2 text-xs font-normal text-gray-500">
@@ -54,11 +51,9 @@ function Login() {
           <p className="mt-2 text-sm text-gray-400">
             ยินดีต้อนรับกลับสู่ GAMEKEY STORE
           </p>
-
         </div>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-5">
-
           <div>
             <label className="mb-2 block text-sm font-semibold">
               อีเมล
@@ -104,7 +99,6 @@ function Login() {
               ? 'กำลังเข้าสู่ระบบ...'
               : 'เข้าสู่ระบบ'}
           </button>
-
         </form>
 
         <div className="my-5 flex items-center gap-3">
@@ -125,36 +119,6 @@ function Login() {
           Guest สามารถดูหน้าร้านค้าได้เท่านั้น
         </p>
 
-        <div className="mt-6 rounded-xl border border-purple-500/20 bg-purple-500/5 p-4">
-
-          <p className="font-semibold text-purple-400">
-            บัญชีทดสอบ Member
-          </p>
-
-          <p className="mt-3 text-sm text-gray-300">
-            Email: demo@moviehub.test
-          </p>
-
-          <p className="mt-1 text-sm text-gray-300">
-            Password: 1234
-          </p>
-
-          <div className="my-4 border-t border-white/10" />
-
-          <p className="font-semibold text-purple-400">
-            บัญชีทดสอบ Admin
-          </p>
-
-          <p className="mt-3 text-sm text-gray-300">
-            Email: admin@gamekey.test
-          </p>
-
-          <p className="mt-1 text-sm text-gray-300">
-            Password: admin123
-          </p>
-
-        </div>
-
         <p className="mt-6 text-center text-sm text-gray-400">
           ยังไม่มีบัญชี?{' '}
           <Link
@@ -173,7 +137,6 @@ function Login() {
             ← กลับหน้าร้านค้า
           </Link>
         </div>
-
       </div>
     </div>
   );

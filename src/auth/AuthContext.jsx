@@ -6,6 +6,7 @@ const AuthContext = createContext(null);
 const TOKEN_KEY = 'gamekey_token';
 const MEMBER_KEY = 'gamekey_member';
 const USERS_KEY = 'gamekey_users';
+const ACCOUNT_KEY = 'gamekey_account_overrides';
 
 const demoUser = {
   id: 1,
@@ -22,6 +23,20 @@ const adminUser = {
   displayName: 'Admin',
   role: 'admin'
 };
+
+function getAccountOverrides() {
+  return JSON.parse(localStorage.getItem(ACCOUNT_KEY) || '{}');
+}
+
+function getAllUsers() {
+  const users = JSON.parse(localStorage.getItem(USERS_KEY) || '[]');
+  const overrides = getAccountOverrides();
+
+  const updatedDemo = { ...demoUser, ...overrides.demo };
+  const updatedAdmin = { ...adminUser, ...overrides.admin };
+
+  return [updatedDemo, updatedAdmin, ...users];
+}
 
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(
@@ -53,11 +68,7 @@ export function AuthProvider({ children }) {
   }
 
   async function login(email, password) {
-    const users = JSON.parse(
-      localStorage.getItem(USERS_KEY) || '[]'
-    );
-
-    const allUsers = [demoUser, adminUser, ...users];
+    const allUsers = getAllUsers();
 
     const user = allUsers.find(
       (item) =>
@@ -77,15 +88,13 @@ export function AuthProvider({ children }) {
       localStorage.getItem(USERS_KEY) || '[]'
     );
 
-    const emailExists = users.some(
+    const allUsers = getAllUsers();
+
+    const emailExists = allUsers.some(
       (user) => user.email.toLowerCase() === email.toLowerCase()
     );
 
-    if (
-      email.toLowerCase() === demoUser.email ||
-      email.toLowerCase() === adminUser.email ||
-      emailExists
-    ) {
+    if (emailExists) {
       throw new Error('อีเมลนี้ถูกใช้งานแล้ว');
     }
 
@@ -102,6 +111,75 @@ export function AuthProvider({ children }) {
     localStorage.setItem(USERS_KEY, JSON.stringify(users));
 
     remember(newUser);
+  }
+
+  function updateProfile(displayName, email, newPassword) {
+    if (!member) {
+      throw new Error('กรุณาเข้าสู่ระบบก่อน');
+    }
+
+    const allUsers = getAllUsers();
+
+    const emailExists = allUsers.some(
+      (user) =>
+        user.email.toLowerCase() === email.toLowerCase() &&
+        String(user.id) !== String(member.id)
+    );
+
+    if (emailExists) {
+      throw new Error('อีเมลนี้ถูกใช้งานแล้ว');
+    }
+
+    const currentUser = allUsers.find(
+      (user) => String(user.id) === String(member.id)
+    );
+
+    if (!currentUser) {
+      throw new Error('ไม่พบบัญชีผู้ใช้');
+    }
+
+    const updatedUser = {
+      ...currentUser,
+      displayName,
+      email,
+      password: newPassword || currentUser.password
+    };
+
+    if (member.id === demoUser.id && member.role === 'member') {
+      const overrides = getAccountOverrides();
+
+      overrides.demo = {
+        displayName: updatedUser.displayName,
+        email: updatedUser.email,
+        password: updatedUser.password
+      };
+
+      localStorage.setItem(ACCOUNT_KEY, JSON.stringify(overrides));
+    } else if (member.id === adminUser.id && member.role === 'admin') {
+      const overrides = getAccountOverrides();
+
+      overrides.admin = {
+        displayName: updatedUser.displayName,
+        email: updatedUser.email,
+        password: updatedUser.password
+      };
+
+      localStorage.setItem(ACCOUNT_KEY, JSON.stringify(overrides));
+    } else {
+      const users = JSON.parse(
+        localStorage.getItem(USERS_KEY) || '[]'
+      );
+
+      const updatedUsers = users.map((user) =>
+        String(user.id) === String(member.id) ? updatedUser : user
+      );
+
+      localStorage.setItem(USERS_KEY, JSON.stringify(updatedUsers));
+    }
+
+    remember(updatedUser);
+
+    return true;
   }
 
   function loginAsGuest() {
@@ -132,6 +210,7 @@ export function AuthProvider({ children }) {
     isAdmin,
     login,
     register,
+    updateProfile,
     loginAsGuest,
     logout
   };

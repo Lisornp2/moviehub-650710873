@@ -15,6 +15,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Payment from './pages/Payment';
 import NotFound from './pages/NotFound';
+import About from './pages/About';
 
 function App() {
   return (
@@ -24,6 +25,8 @@ function App() {
       <main>
         <Routes>
           <Route path="/" element={<Home />} />
+
+          <Route path="/about" element={<About />} />
 
           <Route path="/game/:id" element={<MovieDetail />} />
 

@@ -1,4 +1,5 @@
 
+import { useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 
@@ -6,6 +7,7 @@ function AdminLayout() {
   const { member, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [profileOpen, setProfileOpen] = useState(false);
 
   const menuItems = [
     { name: 'จัดการเกม', path: '/admin/games', icon: '🎮' },
@@ -13,8 +15,9 @@ function AdminLayout() {
   ];
 
   function handleLogout() {
+    setProfileOpen(false);
     logout();
-    navigate('/login');
+    navigate('/login', { replace: true });
   }
 
   return (
@@ -75,25 +78,58 @@ function AdminLayout() {
           >
             ← กลับหน้าร้านค้า
           </Link>
-
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="w-full rounded-lg px-3 py-2 text-left text-sm text-red-400 transition hover:bg-red-500/10"
-          >
-            ออกจากระบบ
-          </button>
         </div>
       </aside>
 
       <main className="min-w-0 flex-1">
-        <header className="border-b border-white/10 bg-[#0c0c14] px-6 py-5 md:px-8">
-          <p className="text-sm text-gray-500">
-            GAMEKEY STORE / ADMIN
-          </p>
-          <h1 className="mt-1 text-xl font-bold">
-            ระบบจัดการร้านค้า
-          </h1>
+        <header className="flex items-center justify-between gap-4 border-b border-white/10 bg-[#0c0c14] px-6 py-5 md:px-8">
+          <div>
+            <p className="text-sm text-gray-500">
+              GAMEKEY STORE / ADMIN
+            </p>
+            <h1 className="mt-1 text-xl font-bold">
+              ระบบจัดการร้านค้า
+            </h1>
+          </div>
+
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setProfileOpen(!profileOpen)}
+              className="flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm text-gray-300 transition hover:border-purple-500 hover:text-white"
+            >
+              <span>👤</span>
+              <span>Profile (Admin)</span>
+              <span className="rounded-md bg-purple-500/20 px-2 py-1 text-xs text-purple-400">
+                ADMIN
+              </span>
+              <span className="text-xs">
+                {profileOpen ? '▲' : '▼'}
+              </span>
+            </button>
+
+            {profileOpen && (
+              <div className="absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-xl border border-white/10 bg-[#14141f] shadow-xl">
+                <Link
+                  to="/about"
+                  onClick={() => setProfileOpen(false)}
+                  className="block px-4 py-3 text-sm text-gray-300 transition hover:bg-purple-500/10 hover:text-purple-400"
+                >
+                  👤 My Account
+                </Link>
+
+                <div className="border-t border-white/10" />
+
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="w-full px-4 py-3 text-left text-sm text-red-400 transition hover:bg-red-500/10"
+                >
+                  ↪ Log Out
+                </button>
+              </div>
+            )}
+          </div>
         </header>
 
         <div className="p-5 md:p-8">

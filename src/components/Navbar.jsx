@@ -1,9 +1,16 @@
 
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 
 function Navbar() {
   const { member, isLoggedIn, isAdmin, logout } = useAuth();
+  const [profileOpen, setProfileOpen] = useState(false);
+
+  function handleLogout() {
+    setProfileOpen(false);
+    logout();
+  }
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-[#0c0c14]/95 backdrop-blur-lg">
@@ -44,26 +51,49 @@ function Navbar() {
           )}
         </div>
 
-        <div className="ml-auto flex flex-wrap items-center gap-3">
+        <div className="relative ml-auto flex items-center gap-3">
           {isLoggedIn ? (
             <>
-              <span className="text-sm text-gray-300">
-                👤 {member?.displayName}
-              </span>
-
-              {isAdmin && (
-                <span className="rounded-md bg-purple-500/20 px-2 py-1 text-xs text-purple-400">
-                  ADMIN
-                </span>
-              )}
-
               <button
                 type="button"
-                onClick={logout}
-                className="rounded-lg border border-white/10 px-3 py-2 text-sm text-gray-300 transition hover:border-red-500 hover:text-red-400"
+                onClick={() => setProfileOpen(!profileOpen)}
+                className="flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm text-gray-300 transition hover:border-purple-500 hover:text-white"
               >
-                ออกจากระบบ
+                <span>👤</span>
+                <span>Profile (Demo)</span>
+
+                {isAdmin && (
+                  <span className="rounded-md bg-purple-500/20 px-2 py-1 text-xs text-purple-400">
+                    ADMIN
+                  </span>
+                )}
+
+                <span className="text-xs">
+                  {profileOpen ? '▲' : '▼'}
+                </span>
               </button>
+
+              {profileOpen && (
+                <div className="absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-xl border border-white/10 bg-[#14141f] shadow-xl">
+                  <Link
+                    to="/about"
+                    onClick={() => setProfileOpen(false)}
+                    className="block px-4 py-3 text-sm text-gray-300 transition hover:bg-purple-500/10 hover:text-purple-400"
+                  >
+                    👤 My Account
+                  </Link>
+
+                  <div className="border-t border-white/10" />
+
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="w-full px-4 py-3 text-left text-sm text-red-400 transition hover:bg-red-500/10"
+                  >
+                    ↪ Log Out
+                  </button>
+                </div>
+              )}
             </>
           ) : (
             <Link
