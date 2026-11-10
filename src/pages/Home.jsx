@@ -3,8 +3,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import FeaturedCarousel from '../components/FeaturedCarousel';
 import MovieGrid from '../components/MovieGrid';
-import games from '../data/games';
-
+import { getGames } from '../data/gameCatalog';
 
 const categories = [
   'ทั้งหมด',
@@ -18,6 +17,7 @@ const categories = [
 function Home() {
   const navigate = useNavigate();
 
+  const [games] = useState(getGames);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('ทั้งหมด');
 
@@ -27,12 +27,12 @@ function Home() {
     });
   };
 
-  const featuredGames = games.filter(game =>
+  const featuredGames = games.filter((game) =>
     [1, 2, 3, 4, 6, 7].includes(game.id)
   );
 
   const filteredGames = useMemo(() => {
-    return games.filter(game => {
+    return games.filter((game) => {
       const matchSearch = game.title
         .toLowerCase()
         .includes(search.toLowerCase());
@@ -42,7 +42,9 @@ function Home() {
 
       return matchSearch && matchCategory;
     });
-  }, [search, category]);
+  }, [games, search, category]);
+
+  const mainGame = games[0];
 
   return (
     <div className="min-h-screen bg-[#09090f] text-white">
@@ -51,7 +53,6 @@ function Home() {
         <div className="absolute -right-20 -top-32 h-96 w-96 rounded-full bg-purple-600/20 blur-3xl" />
 
         <div className="relative mx-auto grid max-w-7xl items-center gap-10 px-5 py-16 md:grid-cols-2 md:px-8 md:py-24">
-
           <div>
             <span className="inline-block rounded-full border border-purple-400/30 bg-purple-500/10 px-4 py-2 text-sm text-purple-300">
               🎮 DIGITAL GAME KEY STORE
@@ -88,7 +89,9 @@ function Home() {
 
             <div className="mt-10 flex gap-10">
               <div>
-                <p className="text-2xl font-bold">10+</p>
+                <p className="text-2xl font-bold">
+                  {games.length}+
+                </p>
                 <p className="text-sm text-gray-500">เกมในร้าน</p>
               </div>
 
@@ -105,20 +108,25 @@ function Home() {
           </div>
 
           <div className="relative">
-            <img
-              src="https://cdn.akamai.steamstatic.com/steam/apps/1245620/header.jpg"
-              alt="Elden Ring"
-              className="w-full cursor-pointer rounded-2xl border border-white/10 shadow-2xl shadow-purple-950/50"
-              onClick={() => openGameDetail(games[0])}
-            />
+            {mainGame && (
+              <>
+                <img
+                  src={mainGame.poster}
+                  alt={mainGame.title}
+                  className="w-full cursor-pointer rounded-2xl border border-white/10 shadow-2xl shadow-purple-950/50"
+                  onClick={() => openGameDetail(mainGame)}
+                />
 
-            <div className="absolute -bottom-5 left-4 rounded-xl border border-white/10 bg-[#171522] p-4 shadow-xl">
-              <p className="text-xs text-gray-400">FEATURED GAME</p>
-              <p className="mt-1 font-bold">ELDEN RING</p>
-              <p className="mt-1 text-lg font-bold text-purple-400">฿899</p>
-            </div>
+                <div className="absolute -bottom-5 left-4 rounded-xl border border-white/10 bg-[#171522] p-4 shadow-xl">
+                  <p className="text-xs text-gray-400">FEATURED GAME</p>
+                  <p className="mt-1 font-bold">{mainGame.title}</p>
+                  <p className="mt-1 text-lg font-bold text-purple-400">
+                    ฿{Number(mainGame.discountPrice).toLocaleString('th-TH')}
+                  </p>
+                </div>
+              </>
+            )}
           </div>
-
         </div>
       </section>
 
@@ -139,7 +147,7 @@ function Home() {
             title: 'Special Offers',
             detail: 'พบกับเกมราคาพิเศษ'
           }
-        ].map(item => (
+        ].map((item) => (
           <div
             key={item.title}
             className="flex items-center gap-4 rounded-2xl border border-white/10 bg-[#14141f] p-5"
@@ -188,13 +196,13 @@ function Home() {
         <input
           type="text"
           value={search}
-          onChange={e => setSearch(e.target.value)}
+          onChange={(e) => setSearch(e.target.value)}
           placeholder="🔍 ค้นหาชื่อเกม..."
           className="mb-6 w-full rounded-xl border border-white/10 bg-[#151520] px-5 py-3 text-sm text-white outline-none placeholder:text-gray-500 focus:border-purple-500 md:max-w-md"
         />
 
         <div className="mb-7 flex flex-wrap gap-2">
-          {categories.map(item => (
+          {categories.map((item) => (
             <button
               key={item}
               onClick={() => setCategory(item)}

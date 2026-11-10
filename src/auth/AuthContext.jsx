@@ -32,6 +32,8 @@ export function AuthProvider({ children }) {
     () => JSON.parse(localStorage.getItem(MEMBER_KEY) || 'null')
   );
 
+  const [isGuest, setIsGuest] = useState(false);
+
   function remember(user) {
     const newToken = 'mock-token-' + user.id;
 
@@ -44,6 +46,7 @@ export function AuthProvider({ children }) {
 
     setToken(newToken);
     setMember(memberData);
+    setIsGuest(false);
 
     localStorage.setItem(TOKEN_KEY, newToken);
     localStorage.setItem(MEMBER_KEY, JSON.stringify(memberData));
@@ -101,9 +104,19 @@ export function AuthProvider({ children }) {
     remember(newUser);
   }
 
+  function loginAsGuest() {
+    setToken(null);
+    setMember(null);
+    setIsGuest(true);
+
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(MEMBER_KEY);
+  }
+
   function logout() {
     setToken(null);
     setMember(null);
+    setIsGuest(false);
 
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(MEMBER_KEY);
@@ -114,10 +127,12 @@ export function AuthProvider({ children }) {
   const value = {
     token,
     member,
+    isGuest,
     isLoggedIn: Boolean(token),
     isAdmin,
     login,
     register,
+    loginAsGuest,
     logout
   };
 

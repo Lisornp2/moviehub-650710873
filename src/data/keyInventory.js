@@ -11,7 +11,10 @@ function createKeys(game) {
   const keys = [];
 
   for (let i = 1; i <= 100; i++) {
-    const part1 = String(game.id).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    const part1 = String(game.id)
+      .replace(/[^a-zA-Z0-9]/g, '')
+      .toUpperCase();
+
     const part2 = i.toString(36).toUpperCase().padStart(4, '0');
     const part3 = (i * 7919).toString(36).toUpperCase().padStart(4, '0');
 
@@ -22,7 +25,11 @@ function createKeys(game) {
 }
 
 function getInventory() {
-  return JSON.parse(localStorage.getItem(INVENTORY_KEY) || '{}');
+  try {
+    return JSON.parse(localStorage.getItem(INVENTORY_KEY) || '{}');
+  } catch {
+    return {};
+  }
 }
 
 function saveInventory(inventory) {
@@ -33,10 +40,50 @@ export function getGameKeys(game) {
   const inventory = getInventory();
   const gameId = String(game.id);
 
-  if (!inventory[gameId]) {
+  if (!Array.isArray(inventory[gameId])) {
     inventory[gameId] = createKeys(game);
     saveInventory(inventory);
   }
+
+  return inventory[gameId];
+}
+
+export function addGameKeys(game, newKeys) {
+  const inventory = getInventory();
+  const gameId = String(game.id);
+
+  if (!Array.isArray(inventory[gameId])) {
+    inventory[gameId] = createKeys(game);
+  }
+
+  const currentKeys = inventory[gameId];
+
+  newKeys.forEach((key) => {
+    const cleanKey = String(key).trim();
+
+    if (cleanKey !== '' && !currentKeys.includes(cleanKey)) {
+      currentKeys.push(cleanKey);
+    }
+  });
+
+  saveInventory(inventory);
+
+  return currentKeys;
+}
+
+export function deleteGameKey(game, key) {
+  const inventory = getInventory();
+  const gameId = String(game.id);
+
+  if (!Array.isArray(inventory[gameId])) {
+    return [];
+  }
+
+  inventory[gameId] = inventory[gameId].filter(
+    (item) => item !== key
+  );
+
+  saveInventory(inventory);
 
   return inventory[gameId];
 }
@@ -45,7 +92,7 @@ export function purchaseGameKeys(game, quantity) {
   const inventory = getInventory();
   const gameId = String(game.id);
 
-  if (!inventory[gameId]) {
+  if (!Array.isArray(inventory[gameId])) {
     inventory[gameId] = createKeys(game);
   }
 

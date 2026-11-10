@@ -8,12 +8,8 @@ function AdminLayout() {
   const navigate = useNavigate();
 
   const menuItems = [
-    { name: 'Dashboard', path: '/admin', icon: '📊' },
-    { name: 'จัดการเกม', icon: '🎮' },
-    { name: 'จัดการ CD-Key', icon: '🔑' },
-    { name: 'จัดการคำสั่งซื้อ', icon: '📦' },
-    { name: 'จัดการสมาชิก', icon: '👥' },
-    { name: 'รายงานยอดขาย', icon: '📈' }
+    { name: 'จัดการเกม', path: '/admin/games', icon: '🎮' },
+    { name: 'จัดการ CD-Key', path: '/admin/keys', icon: '🔑' }
   ];
 
   function handleLogout() {
@@ -31,6 +27,7 @@ function AdminLayout() {
               ADMIN
             </span>
           </Link>
+
           <p className="mt-2 text-xs text-gray-500">
             ระบบจัดการร้านค้า
           </p>
@@ -43,9 +40,9 @@ function AdminLayout() {
 
           <div className="space-y-2">
             {menuItems.map((item) => {
-              const isCurrent = item.path === location.pathname;
+              const isCurrent = location.pathname === item.path;
 
-              return item.path ? (
+              return (
                 <Link
                   key={item.name}
                   to={item.path}
@@ -58,16 +55,6 @@ function AdminLayout() {
                   <span>{item.icon}</span>
                   {item.name}
                 </Link>
-              ) : (
-                <div
-                  key={item.name}
-                  className="flex cursor-not-allowed items-center gap-3 rounded-xl px-4 py-3 text-sm text-gray-600"
-                  title="กำลังพัฒนา"
-                >
-                  <span>{item.icon}</span>
-                  <span>{item.name}</span>
-                  <span className="ml-auto text-[10px]">เร็ว ๆ นี้</span>
-                </div>
               );
             })}
           </div>
@@ -77,6 +64,7 @@ function AdminLayout() {
           <p className="text-sm font-semibold text-white">
             {member?.displayName || 'Admin'}
           </p>
+
           <p className="mt-1 text-xs text-purple-400">
             Administrator
           </p>

@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 
 function Login() {
@@ -9,12 +9,9 @@ function Login() {
   const [error, setError] = useState('');
   const [status, setStatus] = useState('typing');
 
-  const { login } = useAuth();
+  const { login, loginAsGuest } = useAuth();
 
   const navigate = useNavigate();
-  const location = useLocation();
-
-  const from = location.state?.from || '/';
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -24,11 +21,16 @@ function Login() {
 
     try {
       await login(email, password);
-      navigate(from);
+      navigate('/', { replace: true });
     } catch (err) {
       setError(err.message);
       setStatus('typing');
     }
+  }
+
+  function handleGuest() {
+    loginAsGuest();
+    navigate('/', { replace: true });
   }
 
   return (
@@ -104,6 +106,24 @@ function Login() {
           </button>
 
         </form>
+
+        <div className="my-5 flex items-center gap-3">
+          <div className="h-px flex-1 bg-white/10" />
+          <span className="text-xs text-gray-500">หรือ</span>
+          <div className="h-px flex-1 bg-white/10" />
+        </div>
+
+        <button
+          type="button"
+          onClick={handleGuest}
+          className="w-full rounded-xl border border-purple-500/40 bg-purple-500/10 py-3 font-bold text-purple-300 transition hover:bg-purple-500/20"
+        >
+          เข้าใช้งานแบบ Guest
+        </button>
+
+        <p className="mt-2 text-center text-xs text-gray-500">
+          Guest สามารถดูหน้าร้านค้าได้เท่านั้น
+        </p>
 
         <div className="mt-6 rounded-xl border border-purple-500/20 bg-purple-500/5 p-4">
 
