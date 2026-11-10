@@ -1,121 +1,240 @@
-import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import ReviewForm from '../components/ReviewForm';
-import ReviewList from '../components/ReviewList';
-import MovieActions from '../components/MovieActions';
-import { getMovie } from '../api/backend';
-import { useAuth } from '../auth/AuthContext';  
-import { getReviews, postReview } from '../api/backend';
+
+import { useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { getGameKeys } from '../data/keyInventory';
 
 function MovieDetail() {
-  const { id } = useParams();                       // ได้เป็น string เสมอ (ตอนนี้คือรหัสของ TMDB)
-  const [movie, setMovie] = useState(null);
-  const [status, setStatus] = useState('loading');
-  const [error, setError] = useState(null);
-  const [reviews, setReviews] = useState([]);       // รีวิวจาก backend ของเรา (ไม่ใช่ TMDB)
-  const { isLoggedIn, token, member } = useAuth();     
+  const { id } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
 
-    // โหลดรีวิวของเรื่องนี้จาก backend ของเรา แยก effect จาก TMDB เพราะคนละ server
-    useEffect(() => {
-    let ignore = false;
-    async function load() {
-      setStatus('loading');
-      try {
-        const m = await getMovie(id); // ✅ ใช้ getMovie(id) จาก backend
-        if (!ignore) { setMovie(m); setStatus('success'); }
-      } catch (err) {
-        if (!ignore) { setError(err); setStatus('error'); }
-      }
+  const game = location.state?.game;
+
+  const [quantity, setQuantity] = useState(1);
+
+  if (!game || String(game.id) !== id) {
+    return (
+      <div className="min-h-screen bg-[#09090f] px-5 py-20 text-center text-white">
+        <h1 className="text-2xl font-bold">ไม่พบข้อมูลเกม</h1>
+
+        <p className="mt-3 text-gray-400">
+          กรุณากลับไปเลือกเกมจากหน้าร้านค้า
+        </p>
+
+        <button
+          onClick={() => navigate('/')}
+          className="mt-6 rounded-xl bg-purple-600 px-6 py-3 font-semibold hover:bg-purple-500"
+        >
+          กลับหน้าร้านค้า
+        </button>
+      </div>
+    );
+  }
+
+  const availableKeys = getGameKeys(game);
+  const totalPrice = game.discountPrice * quantity;
+
+  const increase = () => {
+    if (quantity < availableKeys.length) {
+      setQuantity(quantity + 1);
     }
-    load();
-    return () => { ignore = true; };
-  }, [id]);
+  };
 
-  // โหลดรีวิวจริงจาก Backend
-  useEffect(() => {
-    let ignore = false;
-    getReviews(id)
-      .then(data => { if (!ignore) setReviews(data.items); })
-      .catch(() => { if (!ignore) setReviews([]); });
-    return () => { ignore = true; };
-  }, [id]);
+  const decrease = () => {
+    if (quantity > 1) {
+      setQuantity(quantity - 1);
+    }
+  };
 
-  // ส่งรีวิว
-  async function handleReviewSubmit(text) {
-    const saved = await postReview(id, text, token);
-    setReviews([
-      { ...saved, member: { id: member.id, displayName: member.displayName }, score: null },
-      ...reviews,
-    ]);
-  }
-  // ส่งรีวิวจริง: ReviewForm เรียกฟังก์ชันนี้ตอนกดส่ง ถ้า throw ฟอร์มจะโชว์ข้อความ error เอง
-                                     // id เปลี่ยน = โหลดเรื่องใหม่
+  const buyGame = () => {
+    const checkout = {
+      orderId: 'GK' + Date.now(),
+      game: game,
+      quantity: quantity,
+      totalPrice: totalPrice
+    };
 
-  // TODO ขั้นที่ 3 (ก): เปลี่ยน effect นี้ให้โหลดรีวิวจริงจาก backend
-  //   getReviews(id) ได้ { items } แล้ว setReviews(items)  dependency คือ [id] เหมือนตัวบน
-  //   (แยกจาก effect ของ TMDB เพราะคนละ server พังคนละแบบ ไม่ควรให้รีวิวล่มแล้วหน้าทั้งหน้าพัง)
-
-
-  if (status === 'loading') {
-    return (
-      <div className="mx-auto max-w-4xl animate-pulse px-4 py-10 md:px-6">
-        <div className="flex flex-col gap-8 md:flex-row">
-          <div className="aspect-[2/3] w-48 shrink-0 rounded-xl bg-slate-100" />
-          <div className="flex-1 space-y-3">
-            <div className="h-8 w-2/3 rounded bg-slate-100" />
-            <div className="h-4 w-1/3 rounded bg-slate-100" />
-            <div className="h-24 w-full rounded bg-slate-100" />
-          </div>
-        </div>
-      </div>
+    localStorage.setItem(
+      'gamekey_pending_payment',
+      JSON.stringify(checkout)
     );
-  }
 
-  if (status === 'error') {
-    return (
-      <div className="mx-auto max-w-xl px-4 py-20 text-center">
-        <p className="text-lg text-slate-700">ไม่พบหนังเรื่องนี้ 😢</p>
-        <p className="text-sm text-slate-400">{error.message}</p>
-        <Link to="/movies" className="mt-6 inline-block text-sm text-emerald-600 hover:underline">กลับไปหน้าหนังทั้งหมด</Link>
-      </div>
-    );
-  }
+    navigate('/payment', {
+      state: checkout
+    });
+  };
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-10 md:px-6">
-      <Link to="/movies" className="text-sm text-slate-500 hover:text-emerald-600">กลับไปหน้าหนังทั้งหมด</Link>
+    <div className="min-h-screen bg-[#09090f] px-5 py-10 text-white">
 
-      <div className="mt-4 flex flex-col gap-8 md:flex-row">
-        {movie.poster ? ( 
-          <img src={movie.poster} alt={`โปสเตอร์ ${movie.title}`}
-               className="w-48 shrink-0 self-start rounded-xl border border-slate-200" />
-        ) : (
-          <div className="grid aspect-[2/3] w-48 shrink-0 place-items-center rounded-xl bg-slate-100 text-5xl">🎬</div>
-        )}
+      <div className="mx-auto max-w-6xl">
 
-        <div className="flex-1">
-          <h1 className="text-2xl font-semibold text-slate-900 md:text-3xl">{movie.title}</h1>
-          {movie.titleTh && <p className="mt-1 text-slate-500">{movie.titleTh}</p>}
-          <p className="mt-2 text-sm text-slate-500">
-            {movie.year}{movie.genre && ` | ${movie.genre}`}{movie.rating != null && ` | ⭐ ${movie.rating}`}
-          </p>
-          <p className="mt-4 leading-relaxed text-slate-700">{movie.detail}</p>
+        <button
+          onClick={() => navigate('/')}
+          className="mb-8 text-sm text-gray-400 transition hover:text-purple-400"
+        >
+          ← กลับไปหน้าร้านค้า
+        </button>
 
-          <MovieActions movieId={movie.id} />
+        <div className="grid gap-10 md:grid-cols-2">
 
-          <div className="mt-8">
-            <h2 className="mb-3 text-lg font-semibold text-slate-900">รีวิวจากสมาชิก ({reviews.length})</h2>
-            <ReviewList items={reviews} />
+          <div>
+            <img
+              src={game.poster}
+              alt={game.title}
+              className="w-full rounded-2xl border border-white/10 shadow-xl shadow-purple-950/30"
+            />
+
+            <div className="mt-5 rounded-xl border border-white/10 bg-[#14141f] p-5">
+              <p className="mb-3 text-sm font-semibold text-purple-400">
+                รายละเอียดสินค้า
+              </p>
+
+              <p className="leading-7 text-gray-300">
+                {game.detail}
+              </p>
+            </div>
           </div>
 
-          <div className="mt-6 rounded-xl border border-emerald-100 bg-white p-5">
-            {isLoggedIn ? (
-              <ReviewForm key={movie.id} movieTitle={movie.title} onSubmit={handleReviewSubmit} />
-            ) : (
-              <p className="text-sm text-slate-500">
-                <Link to="/login" className="text-emerald-600 hover:underline">เข้าสู่ระบบ</Link> เพื่อเขียนรีวิว
+          <div>
+
+            <span className="rounded-lg bg-purple-600 px-3 py-1 text-xs font-bold">
+              ลดราคา {game.discount}%
+            </span>
+
+            <h1 className="mt-5 text-3xl font-black md:text-4xl">
+              {game.title}
+            </h1>
+
+            <div className="mt-4 flex flex-wrap gap-3">
+
+              <span className="rounded-lg border border-white/10 bg-[#14141f] px-3 py-2 text-sm text-gray-300">
+                🎮 {game.platform}
+              </span>
+
+              <span className="rounded-lg border border-white/10 bg-[#14141f] px-3 py-2 text-sm text-gray-300">
+                🌎 {game.region}
+              </span>
+
+              <span className="rounded-lg border border-white/10 bg-[#14141f] px-3 py-2 text-sm text-gray-300">
+                ⭐ {game.rating}
+              </span>
+
+              <span className="rounded-lg border border-white/10 bg-[#14141f] px-3 py-2 text-sm text-gray-300">
+                {game.genre}
+              </span>
+
+            </div>
+
+            <div className="mt-8 rounded-2xl border border-white/10 bg-[#14141f] p-6">
+
+              <p className="text-sm text-gray-500">
+                ราคาสินค้า
               </p>
-            )}
+
+              <div className="mt-2 flex items-center gap-3">
+
+                <p className="text-lg text-gray-500 line-through">
+                  ฿{game.price.toLocaleString('th-TH')}
+                </p>
+
+                <span className="rounded-md bg-red-500/10 px-2 py-1 text-xs font-bold text-red-400">
+                  -{game.discount}%
+                </span>
+
+              </div>
+
+              <p className="mt-1 text-4xl font-black text-purple-400">
+                ฿{game.discountPrice.toLocaleString('th-TH')}
+              </p>
+
+              <div className="mt-5 rounded-lg bg-[#09090f] p-3">
+
+                <p className="text-sm text-gray-400">
+                  คีย์คงเหลือในคลัง
+                </p>
+
+                <p className="mt-1 text-xl font-bold text-green-400">
+                  {availableKeys.length} คีย์
+                </p>
+
+              </div>
+
+              <div className="mt-7">
+
+                <p className="mb-3 text-sm font-semibold">
+                  จำนวนคีย์ที่ต้องการ
+                </p>
+
+                <div className="flex items-center gap-4">
+
+                  <button
+                    onClick={decrease}
+                    disabled={quantity === 1}
+                    className="h-11 w-11 rounded-lg border border-white/10 bg-[#20202d] text-xl transition hover:border-purple-500 disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    -
+                  </button>
+
+                  <span className="min-w-8 text-center text-xl font-bold">
+                    {quantity}
+                  </span>
+
+                  <button
+                    onClick={increase}
+                    disabled={quantity >= availableKeys.length}
+                    className="h-11 w-11 rounded-lg border border-white/10 bg-[#20202d] text-xl transition hover:border-purple-500 disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    +
+                  </button>
+
+                </div>
+              </div>
+
+              <div className="mt-7 flex items-center justify-between border-t border-white/10 pt-5">
+
+                <p className="text-gray-400">
+                  ราคารวม
+                </p>
+
+                <p className="text-2xl font-black text-purple-400">
+                  ฿{totalPrice.toLocaleString('th-TH')}
+                </p>
+
+              </div>
+
+              <button
+                onClick={buyGame}
+                disabled={availableKeys.length === 0}
+                className="mt-6 w-full rounded-xl bg-purple-600 py-4 font-bold transition hover:bg-purple-500 disabled:cursor-not-allowed disabled:bg-gray-700"
+              >
+                🛒 ซื้อคีย์เกม
+              </button>
+
+              {availableKeys.length === 0 && (
+                <p className="mt-3 text-center text-sm text-red-400">
+                  คีย์เกมหมดชั่วคราว
+                </p>
+              )}
+
+            </div>
+
+            <div className="mt-5 rounded-xl border border-white/10 bg-[#14141f] p-4">
+
+              <p className="text-sm text-gray-400">
+                ⚡ สินค้าดิจิทัล Game Key
+              </p>
+
+              <p className="mt-2 text-sm text-gray-400">
+                🎮 แพลตฟอร์ม: {game.platform}
+              </p>
+
+              <p className="mt-2 text-sm text-gray-400">
+                🌎 โซนใช้งาน: {game.region}
+              </p>
+
+            </div>
+
           </div>
         </div>
       </div>

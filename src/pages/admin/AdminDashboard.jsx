@@ -1,102 +1,225 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { useAuth } from '../../auth/AuthContext';
-import { getAdminStats } from '../../api/backend';
-import { ErrorBox, Loading } from '../../components/admin/AdminStates';
 
-// การ์ดตัวเลข 1 ใบ
-function StatCard({ label, value, to }) {
-  const body = (
-    <>
-      <p className="text-sm text-slate-500">{label}</p>
-      <p className="mt-1 text-3xl font-semibold text-slate-900">{value}</p>
-    </>
-  );
-  const cls = 'rounded-xl border border-emerald-100 bg-white p-4';
-  return to ? <Link to={to} className={cls + ' block hover:border-emerald-300'}>{body}</Link> : <div className={cls}>{body}</div>;
+import { useEffect, useState } from 'react';
+import games from '../../data/games';
+
+function readStorage(key) {
+  try {
+    return JSON.parse(localStorage.getItem(key) || '[]');
+  } catch {
+    return [];
+  }
 }
 
-const dateTH = (iso) => new Date(iso).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+function formatMoney(amount) {
+  return Number(amount || 0).toLocaleString('th-TH', {
+    style: 'currency',
+    currency: 'THB',
+    maximumFractionDigits: 0
+  });
+}
 
 function AdminDashboard() {
-  const { token } = useAuth();
-  const [stats, setStats] = useState(null);
-  const [status, setStatus] = useState('loading');
-  const [error, setError] = useState(null);
-  const [reloadKey, setReloadKey] = useState(0);
+  const [stats, setStats] = useState({
+    gameCount: 0,
+    memberCount: 0,
+    orderCount: 0,
+    sales: 0,
+    availableKeys: 0,
+    pendingOrders: 0
+  });
+
+  const [recentOrders, setRecentOrders] = useState([]);
 
   useEffect(() => {
-    let ignore = false;
-    async function load() {
-      setStatus('loading');
-      try {
-        const data = await getAdminStats(token);           // ยิงครั้งเดียว ได้ทุกตัวเลขของหน้านี้
-        if (!ignore) { setStats(data); setStatus('success'); }
-      } catch (err) {
-        if (!ignore) { setError(err); setStatus('error'); }
-      }
-    }
-    load();
-    return () => { ignore = true; };
-  }, [token, reloadKey]);
+    const users = readStorage('gamekey_users');
+    const orders = readStorage('gamekey_orders');
 
-  if (status === 'loading') return <Loading />;
-  if (status === 'error') return <ErrorBox error={error} onRetry={() => setReloadKey(k => k + 1)} />;
+    let inventory = {};
+
+    try {
+      inventory = JSON.parse(
+        localStorage.getItem('gamekey_inventory') || '{}'
+      );
+    } catch {
+      inventory = {};
+    }
+
+    const availableKeys = Object.values(inventory).reduce(
+      (total, keys) => total + (Array.isArray(keys) ? keys.length : 0),
+      0
+    );
+
+    const completedOrders = orders.filter(
+      (order) =>
+        order.status === 'ชำระเงินสำเร็จ' ||
+        order.status === 'ซื้อสำเร็จ'
+    );
+
+    const sales = completedOrders.reduce(
+      (total, order) => total + Number(order.totalPrice || 0),
+      0
+    );
+
+    const pendingOrders = orders.filter(
+      (order) =>
+        order.status !== 'ชำระเงินสำเร็จ' &&
+        order.status !== 'ซื้อสำเร็จ'
+    ).length;
+
+    setStats({
+      gameCount: Array.isArray(games) ? games.length : 0,
+      memberCount: users.length + 1,
+      orderCount: orders.length,
+      sales,
+      availableKeys,
+      pendingOrders
+    });
+
+    setRecentOrders(
+      [...orders].reverse().slice(0, 5)
+    );
+  }, []);
+
+  const cards = [
+    {
+      title: 'เกมทั้งหมด',
+      value: stats.gameCount.toLocaleString('th-TH'),
+      icon: '🎮',
+      detail: 'เกมในระบบร้านค้า'
+    },
+    {
+      title: 'สมาชิกทั้งหมด',
+      value: stats.memberCount.toLocaleString('th-TH'),
+      icon: '👥',
+      detail: 'รวมบัญชี Demo Member'
+    },
+    {
+      title: 'คำสั่งซื้อทั้งหมด',
+      value: stats.orderCount.toLocaleString('th-TH'),
+      icon: '📦',
+      detail: 'รายการสั่งซื้อในระบบ'
+    },
+    {
+      title: 'ยอดขายรวม',
+      value: formatMoney(stats.sales),
+      icon: '💰',
+      detail: 'นับเฉพาะรายการที่ชำระสำเร็จ'
+    },
+    {
+      title: 'CD-Key คงเหลือ',
+      value: stats.availableKeys.toLocaleString('th-TH'),
+      icon: '🔑',
+      detail: 'คีย์ที่ถูกสร้างและยังไม่ถูกใช้'
+    },
+    {
+      title: 'รายการรอดำเนินการ',
+      value: stats.pendingOrders.toLocaleString('th-TH'),
+      icon: '⏳',
+      detail: 'รายการที่ยังไม่ใช่สถานะชำระสำเร็จ'
+    }
+  ];
 
   return (
-    <div className="space-y-8">
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
-        <StatCard label="หนัง" value={stats.movies} to="/admin/movies" />
-        <StatCard label="สมาชิก" value={stats.members} to="/admin/members" />
-        <StatCard label="admin" value={stats.admins} />
-        <StatCard label="โหวต" value={stats.votes} />
-        <StatCard label="อยากดู" value={stats.wishlistItems} />
+    <div>
+      <div className="mb-8">
+        <h2 className="text-2xl font-bold">Dashboard</h2>
+        <p className="mt-2 text-sm text-gray-400">
+          ภาพรวมข้อมูลร้านค้า GAMEKEY STORE
+        </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <section className="rounded-xl border border-emerald-100 bg-white p-4">
-          <h2 className="font-semibold text-slate-900">หนังที่สมาชิกให้คะแนนสูงสุด</h2>
-          <p className="text-xs text-slate-400">คะแนนจากสมาชิกเว็บเรา ไม่ใช่ของ TMDB</p>
-          {stats.topVoted.length === 0 ? (
-            <p className="py-6 text-center text-sm text-slate-400">ยังไม่มีใครโหวต</p>
-          ) : (
-            <ol className="mt-3 divide-y divide-slate-100">
-              {stats.topVoted.map((m, i) => (
-                <li key={m.id} className="flex items-center gap-3 py-2">
-                  <span className="w-5 text-sm text-slate-400">{i + 1}</span>
-                  {m.poster
-                    ? <img src={m.poster} alt="" className="h-12 w-8 rounded object-cover" />
-                    : <div className="grid h-12 w-8 place-items-center rounded bg-slate-100 text-xs">🎬</div>}
-                  <div className="min-w-0 flex-1">
-                    <Link to={`/movies/${m.id}`} className="block truncate text-sm font-medium text-slate-900 hover:text-emerald-600">{m.title}</Link>
-                    {m.titleTh && <p className="truncate text-xs text-slate-500">{m.titleTh}</p>}
-                  </div>
-                  <span className="text-sm text-slate-600">⭐ {m.voteAverage} <span className="text-xs text-slate-400">({m.voteCount})</span></span>
-                </li>
-              ))}
-            </ol>
-          )}
-        </section>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {cards.map((card) => (
+          <div
+            key={card.title}
+            className="rounded-2xl border border-white/10 bg-[#12121d] p-5 transition hover:border-purple-500/40"
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-400">{card.title}</p>
+              <span className="text-2xl">{card.icon}</span>
+            </div>
 
-        <section className="rounded-xl border border-emerald-100 bg-white p-4">
-          <h2 className="font-semibold text-slate-900">สมาชิกใหม่ล่าสุด</h2>
-          <ul className="mt-3 divide-y divide-slate-100">
-            {stats.newestMembers.map(m => (
-              <li key={m.id} className="flex items-center justify-between py-2 text-sm">
-                <div className="min-w-0">
-                  <p className="truncate font-medium text-slate-900">{m.displayName}</p>
-                  <p className="truncate text-xs text-slate-500">{m.email}</p>
-                </div>
-                <div className="text-right text-xs text-slate-400">
-                  {m.role === 'admin' && <span className="mr-2 rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">admin</span>}
-                  {dateTH(m.createdAt)}
-                </div>
-              </li>
-            ))}
-          </ul>
-          <Link to="/admin/members" className="mt-3 inline-block text-sm text-emerald-600 hover:underline">ดูสมาชิกทั้งหมด</Link>
-        </section>
+            <p className="mt-5 break-words text-2xl font-bold text-white">
+              {card.value}
+            </p>
+
+            <p className="mt-2 text-xs text-gray-500">
+              {card.detail}
+            </p>
+          </div>
+        ))}
       </div>
+
+      <section className="mt-8 overflow-hidden rounded-2xl border border-white/10 bg-[#12121d]">
+        <div className="border-b border-white/10 px-5 py-5">
+          <h3 className="text-lg font-bold">คำสั่งซื้อล่าสุด</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            แสดงรายการล่าสุดไม่เกิน 5 รายการ
+          </p>
+        </div>
+
+        {recentOrders.length === 0 ? (
+          <div className="px-5 py-12 text-center">
+            <p className="text-3xl">📭</p>
+            <p className="mt-3 text-sm text-gray-400">
+              ยังไม่มีคำสั่งซื้อ
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[650px] text-left text-sm">
+              <thead className="bg-white/5 text-gray-400">
+                <tr>
+                  <th className="px-5 py-4 font-medium">เลขที่คำสั่งซื้อ</th>
+                  <th className="px-5 py-4 font-medium">เกม</th>
+                  <th className="px-5 py-4 font-medium">จำนวน</th>
+                  <th className="px-5 py-4 font-medium">ยอดรวม</th>
+                  <th className="px-5 py-4 font-medium">สถานะ</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {recentOrders.map((order, index) => (
+                  <tr
+                    key={order.orderId || index}
+                    className="border-t border-white/5"
+                  >
+                    <td className="px-5 py-4 text-gray-300">
+                      {order.orderId || '-'}
+                    </td>
+                    <td className="px-5 py-4 text-white">
+                      {order.game?.title || order.title || '-'}
+                    </td>
+                    <td className="px-5 py-4 text-gray-300">
+                      {order.quantity || 0}
+                    </td>
+                    <td className="px-5 py-4 text-gray-300">
+                      {formatMoney(order.totalPrice)}
+                    </td>
+                    <td className="px-5 py-4">
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs ${
+                          order.status === 'ชำระเงินสำเร็จ' ||
+                          order.status === 'ซื้อสำเร็จ'
+                            ? 'bg-green-500/10 text-green-400'
+                            : 'bg-yellow-500/10 text-yellow-400'
+                        }`}
+                      >
+                        {order.status || 'ไม่ระบุสถานะ'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <p className="mt-5 text-xs text-gray-600">
+        หมายเหตุ: ข้อมูลในหน้านี้อ่านจาก localStorage ของเบราว์เซอร์เครื่องนี้
+        จึงเป็นข้อมูลสำหรับระบบจำลองเท่านั้น
+      </p>
     </div>
   );
 }

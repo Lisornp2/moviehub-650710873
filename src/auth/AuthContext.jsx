@@ -1,48 +1,133 @@
-import { createContext, useContext, useState } from 'react';
-import * as api from '../api/backend';
 
-// Context = "กล่องกลาง" ที่ component ไหนในแอปก็เอื้อมมาหยิบได้ ไม่ต้องส่ง props ต่อกันเป็นทอด ๆ
-// เราใส่สถานะ login ไว้ในนี้ เพราะ Navbar, MovieDetail, Wishlist ต้องรู้เหมือนกันหมดว่าใครล็อกอินอยู่
+import { createContext, useContext, useState } from 'react';
+
 const AuthContext = createContext(null);
 
-const TOKEN_KEY = 'moviehub.token';
-const MEMBER_KEY = 'moviehub.member';
+const TOKEN_KEY = 'gamekey_token';
+const MEMBER_KEY = 'gamekey_member';
+const USERS_KEY = 'gamekey_users';
+
+const demoUser = {
+  id: 1,
+  email: 'demo@moviehub.test',
+  password: '1234',
+  displayName: 'Demo User',
+  role: 'member'
+};
+
+const adminUser = {
+  id: 0,
+  email: 'admin@gamekey.test',
+  password: 'admin123',
+  displayName: 'Admin',
+  role: 'admin'
+};
 
 export function AuthProvider({ children }) {
-  // อ่านค่าเดิมจาก localStorage จะได้ไม่หลุด login ตอน refresh
-  const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY));
-  const [member, setMember] = useState(() => JSON.parse(localStorage.getItem(MEMBER_KEY) || 'null'));
+  const [token, setToken] = useState(
+    () => localStorage.getItem(TOKEN_KEY)
+  );
 
-  function remember({ token, member }) {
-    setToken(token);
-    setMember(member);
-    localStorage.setItem(TOKEN_KEY, token);
-    localStorage.setItem(MEMBER_KEY, JSON.stringify(member));
+  const [member, setMember] = useState(
+    () => JSON.parse(localStorage.getItem(MEMBER_KEY) || 'null')
+  );
+
+  function remember(user) {
+    const newToken = 'mock-token-' + user.id;
+
+    const memberData = {
+      id: user.id,
+      email: user.email,
+      displayName: user.displayName,
+      role: user.role
+    };
+
+    setToken(newToken);
+    setMember(memberData);
+
+    localStorage.setItem(TOKEN_KEY, newToken);
+    localStorage.setItem(MEMBER_KEY, JSON.stringify(memberData));
   }
 
   async function login(email, password) {
-    const data = await api.login(email, password);   // ถ้าผิด backend.js จะ throw
-    remember(data);
+    const users = JSON.parse(
+      localStorage.getItem(USERS_KEY) || '[]'
+    );
+
+    const allUsers = [demoUser, adminUser, ...users];
+
+    const user = allUsers.find(
+      (item) =>
+        item.email.toLowerCase() === email.toLowerCase() &&
+        item.password === password
+    );
+
+    if (!user) {
+      throw new Error('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+    }
+
+    remember(user);
   }
 
   async function register(email, password, displayName) {
-    await api.register(email, password, displayName);
-    await login(email, password);                    // สมัครเสร็จล็อกอินให้เลย
+    const users = JSON.parse(
+      localStorage.getItem(USERS_KEY) || '[]'
+    );
+
+    const emailExists = users.some(
+      (user) => user.email.toLowerCase() === email.toLowerCase()
+    );
+
+    if (
+      email.toLowerCase() === demoUser.email ||
+      email.toLowerCase() === adminUser.email ||
+      emailExists
+    ) {
+      throw new Error('อีเมลนี้ถูกใช้งานแล้ว');
+    }
+
+    const newUser = {
+      id: Date.now(),
+      email,
+      password,
+      displayName,
+      role: 'member'
+    };
+
+    users.push(newUser);
+
+    localStorage.setItem(USERS_KEY, JSON.stringify(users));
+
+    remember(newUser);
   }
 
   function logout() {
     setToken(null);
     setMember(null);
+
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(MEMBER_KEY);
   }
 
   const isAdmin = member?.role === 'admin';
-  const value = { token, member, isLoggedIn: Boolean(token), isAdmin, login, register, logout };
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+
+  const value = {
+    token,
+    member,
+    isLoggedIn: Boolean(token),
+    isAdmin,
+    login,
+    register,
+    logout
+  };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
-// hook สั้น ๆ ให้ทุกหน้าเรียก useAuth() แทนที่จะต้อง import Context เอง
 export function useAuth() {
   return useContext(AuthContext);
 }

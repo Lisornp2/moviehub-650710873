@@ -1,13 +1,22 @@
-import { Navigate, useLocation } from 'react-router-dom';
+
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 
-// ครอบหน้าที่ต้อง login: ถ้ายังไม่ได้ login ส่งไปหน้า /login แล้วจำไว้ว่ามาจากไหน
-function ProtectedRoute({ children }) {
-  const { isLoggedIn } = useAuth();
-  const location = useLocation();
+function ProtectedRoute({ children, role }) {
+  const { isLoggedIn, member, isAdmin } = useAuth();
+
   if (!isLoggedIn) {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+    return <Navigate to="/login" replace />;
   }
+
+  if (role === 'admin' && !isAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (role === 'member' && member?.role !== 'member') {
+    return <Navigate to="/admin" replace />;
+  }
+
   return children;
 }
 
